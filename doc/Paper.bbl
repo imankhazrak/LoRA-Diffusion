@@ -1,0 +1,145 @@
+\begin{thebibliography}{20}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Aghajanyan et~al.(2020)Aghajanyan, Zettlemoyer, and
+  Gupta]{aghajanyan2020intrinsic}
+Armen Aghajanyan, Luke Zettlemoyer, and Sonal Gupta.
+\newblock Intrinsic dimensionality explains the effectiveness of language model
+  fine-tuning.
+\newblock \emph{arXiv preprint arXiv:2012.13255}, 2020.
+
+\bibitem[Austin et~al.(2021)Austin, Johnson, Ho, Tarlow, and {Van Den
+  Berg}]{austin2021structured}
+Jacob Austin, Daniel~D. Johnson, Jonathan Ho, Daniel Tarlow, and Rian {Van Den
+  Berg}.
+\newblock Structured denoising diffusion models in discrete state-spaces.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~34, pages 17981--17993, 2021.
+
+\bibitem[Brown et~al.(2020)Brown, Mann, Ryder, Subbiah, Kaplan, Dhariwal,
+  Neelakantan, Shyam, Sastry, Askell, et~al.]{brown2020language}
+Tom Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared~D. Kaplan,
+  Prafulla Dhariwal, Arvind Neelakantan, Pranav Shyam, Girish Sastry, Amanda
+  Askell, et~al.
+\newblock Language models are few-shot learners.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~33, pages 1877--1901, 2020.
+
+\bibitem[Dettmers et~al.(2023)Dettmers, Pagnoni, Holtzman, and
+  Zettlemoyer]{dettmers2023qlora}
+Tim Dettmers, Artidoro Pagnoni, Ari Holtzman, and Luke Zettlemoyer.
+\newblock {QLoRA}: Efficient finetuning of quantized {LLMs}.
+\newblock \emph{arXiv preprint arXiv:2305.14314}, 2023.
+
+\bibitem[Fedus et~al.(2022)Fedus, Zoph, and Shazeer]{fedus2022switch}
+William Fedus, Barret Zoph, and Noam Shazeer.
+\newblock Switch transformers: Scaling to trillion parameter models with simple
+  and efficient sparsity.
+\newblock \emph{Journal of Machine Learning Research}, 23\penalty0
+  (120):\penalty0 1--39, 2022.
+
+\bibitem[Hoogeboom et~al.(2021)Hoogeboom, Nielsen, Jaini, Forr{\'e}, and
+  Welling]{hoogeboom2021autoregressive}
+Emiel Hoogeboom, Didrik Nielsen, Priyank Jaini, Patrick Forr{\'e}, and Max
+  Welling.
+\newblock Argmax flows and multinomial diffusion: Learning categorical
+  distributions.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~34, pages 12454--12465, 2021.
+
+\bibitem[Houlsby et~al.(2019)Houlsby, Giurgiu, Jastrz{\k{e}}bski, Morrone, {De
+  Laroussilhe}, Gesmundo, Attariyan, and Gelly]{houlsby2019parameter}
+Neil Houlsby, Andrei Giurgiu, Stanis{\l}aw Jastrz{\k{e}}bski, Bruna Morrone,
+  Quentin {De Laroussilhe}, Andrea Gesmundo, Mona Attariyan, and Sylvain Gelly.
+\newblock Parameter-efficient transfer learning for {NLP}.
+\newblock In \emph{International Conference on Machine Learning}, pages
+  2790--2799, 2019.
+
+\bibitem[Hu et~al.(2021)Hu, Shen, Wallis, Allen-Zhu, Li, Wang, Wang, and
+  Chen]{hu2021lora}
+Edward~J. Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean
+  Wang, Lu~Wang, and Weizhu Chen.
+\newblock {LoRA}: Low-rank adaptation of large language models.
+\newblock \emph{arXiv preprint arXiv:2106.09685}, 2021.
+
+\bibitem[Ilharco et~al.(2022)Ilharco, Ribeiro, Wortsman, Gururangan, Schmidt,
+  Hajishirzi, and Farhadi]{ilharco2022editing}
+Gabriel Ilharco, Marco~Tulio Ribeiro, Mitchell Wortsman, Suchin Gururangan,
+  Ludwig Schmidt, Hannaneh Hajishirzi, and Ali Farhadi.
+\newblock Editing models with task arithmetic.
+\newblock \emph{arXiv preprint arXiv:2212.04089}, 2022.
+
+\bibitem[Lester et~al.(2021)Lester, Al-Rfou, and Constant]{lester2021power}
+Brian Lester, Rami Al-Rfou, and Noah Constant.
+\newblock The power of scale for parameter-efficient prompt tuning.
+\newblock In \emph{Proceedings of the 2021 Conference on Empirical Methods in
+  Natural Language Processing}, pages 3045--3059, 2021.
+
+\bibitem[Li et~al.(2018)Li, Farkhoor, Liu, and Yosinski]{li2018measuring}
+Chunyuan Li, Heerad Farkhoor, Rosanne Liu, and Jason Yosinski.
+\newblock Measuring the intrinsic dimension of objective landscapes.
+\newblock In \emph{International Conference on Learning Representations}, 2018.
+
+\bibitem[Li and Liang(2021)]{li2021prefix}
+Xiang~Lisa Li and Percy Liang.
+\newblock Prefix-tuning: Optimizing continuous prompts for generation.
+\newblock In \emph{Proceedings of the 59th Annual Meeting of the Association
+  for Computational Linguistics}, pages 4582--4597, 2021.
+
+\bibitem[Li et~al.(2022)Li, Thickstun, Gulrajani, Liang, and
+  Hashimoto]{li2022diffusion}
+Xiang~Lisa Li, John Thickstun, Ishaan Gulrajani, Percy~S. Liang, and
+  Tatsunori~B. Hashimoto.
+\newblock Diffusion-{LM} improves controllable text generation.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~35, pages 4328--4343, 2022.
+
+\bibitem[Lou et~al.(2023)Lou, Meng, and Ermon]{lou2023discrete}
+Aaron Lou, Chenlin Meng, and Stefano Ermon.
+\newblock Discrete diffusion modeling by estimating the ratios of the data
+  distribution.
+\newblock In \emph{International Conference on Machine Learning}, pages
+  22481--22505, 2023.
+
+\bibitem[Sahoo et~al.(2024)Sahoo, Nguyen, Loh, Kumar, and
+  Narasimhan]{sahoo2024masked}
+Prateek Sahoo, Hieu Nguyen, Chien-Yu Loh, Ashish Kumar, and Karthik Narasimhan.
+\newblock Simple and effective masked diffusion language models.
+\newblock \emph{arXiv preprint arXiv:2406.07524}, 2024.
+
+\bibitem[Tishby and Zaslavsky(2015)]{tishby2015deep}
+Naftali Tishby and Noga Zaslavsky.
+\newblock Deep learning and the information bottleneck principle.
+\newblock In \emph{IEEE Information Theory Workshop}, pages 1--5, 2015.
+
+\bibitem[Tishby et~al.(2000)Tishby, Pereira, and Bialek]{tishby2000information}
+Naftali Tishby, Fernando~C. Pereira, and William Bialek.
+\newblock The information bottleneck method.
+\newblock \emph{arXiv preprint physics/0004057}, 2000.
+
+\bibitem[Wang et~al.(2020)Wang, Zhang, Lee, Zhang, Sun, Ren, Su, Perot, Dy, and
+  Pfister]{wang2020orthogonal}
+Zifan Wang, Zichen Zhang, Chen-Yu Lee, Han Zhang, Ruixin Sun, Xiang Ren, Guande
+  Su, Vincent Perot, Jennifer Dy, and Tomas Pfister.
+\newblock Learning to prompt for continual learning.
+\newblock \emph{arXiv preprint arXiv:2112.08654}, 2020.
+
+\bibitem[Zaken et~al.(2021)Zaken, Ravfogel, and Goldberg]{zaken2021bitfit}
+Elad~Ben Zaken, Shauli Ravfogel, and Yoav Goldberg.
+\newblock {BitFit}: Simple parameter-efficient fine-tuning for
+  transformer-based masked language-models.
+\newblock \emph{arXiv preprint arXiv:2106.10199}, 2021.
+
+\bibitem[Zhang et~al.(2023)Zhang, Chen, Bukharin, He, Cheng, Chen, and
+  Zhao]{zhang2023adalora}
+Qian Zhang, Muxin Chen, Alexander Bukharin, Pengcheng He, Yu~Cheng, Weizhu
+  Chen, and Tuo Zhao.
+\newblock {AdaLoRA}: Adaptive budget allocation for parameter-efficient
+  fine-tuning.
+\newblock In \emph{International Conference on Learning Representations}, 2023.
+
+\end{thebibliography}
