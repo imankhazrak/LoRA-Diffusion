@@ -1,0 +1,357 @@
+"""Main trainer class for LoRA-Diffusion training."""
+
+import logging
+import os
+import time
+from typing import Dict, Any, Optional
+from pathlib import Path
+
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
+from torch.cuda.amp import autocast, GradScaler
+from tqdm import tqdm
+import json
+
+from .losses import compute_diffusion_loss
+
+logger = logging.getLogger(__name__)
+
+
+class DiffusionTrainer:
+    """Trainer for diffusion models with LoRA-Diffusion support."""
+    
+    def __init__(
+        self,
+        model: nn.Module,
+        train_dataloader: DataLoader,
+        eval_dataloader: DataLoader,
+        optimizer: torch.optim.Optimizer,
+        scheduler: Any,
+        config: Dict[str, Any],
+        lora_module: Optional[nn.Module] = None,
+        router: Optional[nn.Module] = None,
+        device: str = "cuda",
+    ):
+        """
+        Args:
+            model: Base diffusion model
+            train_dataloader: Training data loader
+            eval_dataloader: Evaluation data loader
+            optimizer: Optimizer
+            scheduler: Learning rate scheduler
+            config: Full configuration
+            lora_module: Optional LoRA module
+            router: Optional task router for multi-task composition
+            device: Device to train on
+        """
+        self.model = model.to(device)
+        self.train_dataloader = train_dataloader
+        self.eval_dataloader = eval_dataloader
+        self.optimizer = optimizer
+        self.scheduler = scheduler
+        self.config = config
+        self.lora_module = lora_module.to(device) if lora_module else None
+        self.router = router.to(device) if router else None
+        self.device = device
+        
+        # Training config
+        train_config = config["training"]
+        self.max_steps = train_config["max_steps"]
+        self.gradient_accumulation_steps = train_config["gradient_accumulation_steps"]
+        self.max_grad_norm = train_config["max_grad_norm"]
+        self.logging_steps = train_config["logging_steps"]
+        self.eval_frequency = train_config["eval_frequency"]
+        self.save_frequency = train_config["save_frequency"]
+        
+        # Mixed precision
+        self.use_amp = train_config["mixed_precision"] in ["fp16", "bf16"]
+        self.scaler = GradScaler() if train_config["mixed_precision"] == "fp16" else None
+        self.amp_dtype = torch.float16 if train_config["mixed_precision"] == "fp16" else torch.bfloat16
+        
+        # Output paths
+        output_config = config["output"]
+        self.output_dir = Path(output_config["base_dir"])
+        self.checkpoint_dir = Path(output_config["checkpoint_dir"])
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Tracking
+        self.global_step = 0
+        self.best_metric = float("-inf")
+        self.training_history = []
+        
+        # Count parameters
+        self._log_parameter_counts()
+    
+    def _log_parameter_counts(self):
+        """Log parameter counts."""
+        total_params = sum(p.numel() for p in self.model.parameters())
+        trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        
+        if self.lora_module:
+            lora_params = sum(p.numel() for p in self.lora_module.parameters())
+            trainable_params += lora_params
+            logger.info(f"LoRA parameters: {lora_params:,} ({lora_params/total_params*100:.2f}%)")
+        
+        if self.router:
+            router_params = sum(p.numel() for p in self.router.parameters())
+            trainable_params += router_params
+            logger.info(f"Router parameters: {router_params:,} ({router_params/total_params*100:.2f}%)")
+        
+        logger.info(f"Total parameters: {total_params:,}")
+        logger.info(f"Trainable parameters: {trainable_params:,} ({trainable_params/total_params*100:.2f}%)")
+    
+    def train(self):
+        """Main training loop."""
+        logger.info("Starting training...")
+        
+        self.model.train()
+        if self.lora_module:
+            self.lora_module.train()
+        if self.router:
+            self.router.train()
+        
+        train_iterator = iter(self.train_dataloader)
+        accumulated_loss = 0.0
+        accumulated_metrics = {}
+        step_start_time = time.time()
+        
+        pbar = tqdm(total=self.max_steps, desc="Training")
+        
+        while self.global_step < self.max_steps:
+            # Get batch
+            try:
+                batch = next(train_iterator)
+            except StopIteration:
+                train_iterator = iter(self.train_dataloader)
+                batch = next(train_iterator)
+            
+            # Forward pass
+            # Extract task labels if present
+            task_labels = batch.get("task_labels", None)
+            
+            with autocast(enabled=self.use_amp, dtype=self.amp_dtype if self.use_amp else torch.float32):
+                loss, metrics = compute_diffusion_loss(
+                    model=self.model,
+                    batch=batch,
+                    lora_module=self.lora_module,
+                    config=self.config,
+                    router=self.router,
+                    task_labels=task_labels,
+                )
+                loss = loss / self.gradient_accumulation_steps
+            
+            # Backward pass
+            if self.scaler:
+                self.scaler.scale(loss).backward()
+            else:
+                loss.backward()
+            
+            # Accumulate metrics
+            accumulated_loss += loss.item()
+            for key, value in metrics.items():
+                accumulated_metrics[key] = accumulated_metrics.get(key, 0.0) + value
+            
+            # Update step
+            if (self.global_step + 1) % self.gradient_accumulation_steps == 0:
+                # Clip gradients
+                if self.max_grad_norm > 0:
+                    if self.scaler:
+                        self.scaler.unscale_(self.optimizer)
+                    
+                    params_to_clip = []
+                    if self.lora_module:
+                        params_to_clip.extend(list(self.lora_module.parameters()))
+                    if self.router:
+                        params_to_clip.extend(list(self.router.parameters()))
+                    if not params_to_clip:
+                        params_to_clip = [p for p in self.model.parameters() if p.requires_grad]
+                    
+                    torch.nn.utils.clip_grad_norm_(params_to_clip, self.max_grad_norm)
+                
+                # Optimizer step
+                if self.scaler:
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                else:
+                    self.optimizer.step()
+                
+                self.scheduler.step()
+                self.optimizer.zero_grad()
+                
+                # Log
+                if (self.global_step + 1) % self.logging_steps == 0:
+                    step_time = time.time() - step_start_time
+                    lr = self.scheduler.get_last_lr()[0]
+                    
+                    avg_metrics = {k: v / self.logging_steps for k, v in accumulated_metrics.items()}
+                    
+                    log_str = f"Step {self.global_step + 1}/{self.max_steps} | "
+                    log_str += f"Loss: {avg_metrics['loss']:.4f} | "
+                    log_str += f"Acc: {avg_metrics['accuracy']:.4f} | "
+                    log_str += f"LR: {lr:.2e} | "
+                    log_str += f"Time: {step_time/self.logging_steps:.2f}s/step"
+                    
+                    logger.info(log_str)
+                    pbar.set_postfix(avg_metrics)
+                    
+                    # Record history
+                    self.training_history.append({
+                        "step": self.global_step + 1,
+                        "metrics": avg_metrics,
+                        "lr": lr,
+                        "time_per_step": step_time / self.logging_steps,
+                    })
+                    
+                    accumulated_loss = 0.0
+                    accumulated_metrics = {}
+                    step_start_time = time.time()
+                
+                # Evaluate
+                if (self.global_step + 1) % self.eval_frequency == 0:
+                    eval_metrics = self.evaluate()
+                    logger.info(f"Eval metrics: {eval_metrics}")
+                    
+                    # Save best model
+                    primary_metric = eval_metrics.get(
+                        self.config["metrics"]["primary"],
+                        eval_metrics.get("loss", 0.0)
+                    )
+                    if primary_metric > self.best_metric:
+                        self.best_metric = primary_metric
+                        self.save_checkpoint(f"best_model")
+                        logger.info(f"New best model! Metric: {primary_metric:.4f}")
+                    
+                    self.model.train()
+                    if self.lora_module:
+                        self.lora_module.train()
+                    if self.router:
+                        self.router.train()
+                
+                # Save checkpoint
+                if (self.global_step + 1) % self.save_frequency == 0:
+                    self.save_checkpoint(f"checkpoint-{self.global_step + 1}")
+            
+            self.global_step += 1
+            pbar.update(1)
+        
+        pbar.close()
+        logger.info("Training complete!")
+        
+        # Save final checkpoint
+        self.save_checkpoint("final_model")
+        
+        # Save training history
+        history_path = self.output_dir / "training_history.json"
+        with open(history_path, "w") as f:
+            json.dump(self.training_history, f, indent=2)
+    
+    @torch.no_grad()
+    def evaluate(self) -> Dict[str, float]:
+        """Evaluate model on eval set."""
+        logger.info("Running evaluation...")
+        
+        self.model.eval()
+        if self.lora_module:
+            self.lora_module.eval()
+        if self.router:
+            self.router.eval()
+        
+        total_loss = 0.0
+        total_samples = 0
+        all_metrics = {}
+        
+        for batch in tqdm(self.eval_dataloader, desc="Evaluating"):
+            task_labels = batch.get("task_labels", None)
+            
+            with autocast(enabled=self.use_amp, dtype=self.amp_dtype if self.use_amp else torch.float32):
+                loss, metrics = compute_diffusion_loss(
+                    model=self.model,
+                    batch=batch,
+                    lora_module=self.lora_module,
+                    config=self.config,
+                    router=self.router,
+                    task_labels=task_labels,
+                )
+            
+            batch_size = batch["target_ids"].size(0)
+            total_loss += loss.item() * batch_size
+            total_samples += batch_size
+            
+            for key, value in metrics.items():
+                all_metrics[key] = all_metrics.get(key, 0.0) + value * batch_size
+        
+        # Average metrics
+        eval_metrics = {
+            key: value / total_samples
+            for key, value in all_metrics.items()
+        }
+        
+        return eval_metrics
+    
+    def save_checkpoint(self, name: str):
+        """Save model checkpoint."""
+        checkpoint_path = self.checkpoint_dir / name
+        checkpoint_path.mkdir(parents=True, exist_ok=True)
+        
+        # Save config
+        config_path = checkpoint_path / "config.json"
+        with open(config_path, "w") as f:
+            json.dump(self.config, f, indent=2)
+        
+        # Save model state (only if trainable)
+        if any(p.requires_grad for p in self.model.parameters()):
+            model_path = checkpoint_path / "model.pt"
+            torch.save(self.model.state_dict(), model_path)
+        
+        # Save LoRA module
+        if self.lora_module:
+            lora_path = checkpoint_path / "lora_module.pt"
+            torch.save(self.lora_module.state_dict(), lora_path)
+        
+        # Save router
+        if self.router:
+            router_path = checkpoint_path / "router.pt"
+            torch.save(self.router.state_dict(), router_path)
+        
+        # Save optimizer and scheduler
+        optimizer_path = checkpoint_path / "optimizer.pt"
+        torch.save({
+            "optimizer": self.optimizer.state_dict(),
+            "scheduler": self.scheduler.state_dict(),
+            "step": self.global_step,
+            "best_metric": self.best_metric,
+        }, optimizer_path)
+        
+        logger.info(f"Saved checkpoint to {checkpoint_path}")
+    
+    def load_checkpoint(self, checkpoint_path: Path):
+        """Load model checkpoint."""
+        logger.info(f"Loading checkpoint from {checkpoint_path}")
+        
+        # Load model
+        model_path = checkpoint_path / "model.pt"
+        if model_path.exists():
+            self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+        
+        # Load LoRA
+        lora_path = checkpoint_path / "lora_module.pt"
+        if lora_path.exists() and self.lora_module:
+            self.lora_module.load_state_dict(torch.load(lora_path, map_location=self.device))
+        
+        # Load router
+        router_path = checkpoint_path / "router.pt"
+        if router_path.exists() and self.router:
+            self.router.load_state_dict(torch.load(router_path, map_location=self.device))
+        
+        # Load optimizer
+        optimizer_path = checkpoint_path / "optimizer.pt"
+        if optimizer_path.exists():
+            checkpoint = torch.load(optimizer_path, map_location=self.device)
+            self.optimizer.load_state_dict(checkpoint["optimizer"])
+            self.scheduler.load_state_dict(checkpoint["scheduler"])
+            self.global_step = checkpoint["step"]
+            self.best_metric = checkpoint.get("best_metric", float("-inf"))
+        
+        logger.info(f"Loaded checkpoint from step {self.global_step}")
