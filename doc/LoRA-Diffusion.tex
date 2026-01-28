@@ -6,7 +6,7 @@
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{algorithm}
-\usepackage{algpseudocode}
+\usepackage{algorithmic}
 \usepackage{booktabs}
 \usepackage{multirow}
 \usepackage{geometry}
@@ -480,20 +480,26 @@ where $j$ is the ground-truth task label.
 \caption{LoRA-Diffusion Inference}
 \label{alg:inference}
 \begin{algorithmic}[1]
-\State \textbf{Input:} Instruction $c$, diffusion steps $T$, LoRA modules $\{\phi_i^{(j)}\}_{j=1}^M$
-\State \textbf{Initialize:} $\mathbf{x}_T \sim$ Uniform($\mathcal{V}$) or $\mathcal{N}(0, I)$ (depending on forward process)
-\State $\mathbf{w} \gets \text{Router}(\text{Enc}(c))$ \Comment{Identify relevant tasks}
-\For{$t = T$ down to $1$}
-    \State $\mathbf{x}_{t}^{\text{base}} \gets f_{\theta_0}(\mathbf{x}_t, t, c)$ \Comment{Frozen base denoising}
-    \State $\boldsymbol{\delta} \gets \mathbf{0}$
-    \For{$j = 1$ to $M$} \Comment{Aggregate task-specific perturbations}
-        \For{$i = 1$ to $k$}
-            \State $\boldsymbol{\delta} \gets \boldsymbol{\delta} + w_j \cdot \sigma(t) \cdot g_{\phi_i^{(j)}}(\mathbf{x}_t, t, c)$
-        \EndFor
-    \EndFor
-    \State $\mathbf{x}_{t-1} \gets \mathbf{x}_t^{\text{base}} + \boldsymbol{\delta}$
-\EndFor
-\State \textbf{Return:} $\mathbf{x}_0$
+\STATE \textbf{Input:} Instruction $c$, diffusion steps $T$, LoRA modules $\{\phi_i^{(j)}\}_{j=1}^M$
+\STATE \textbf{Initialize:} $\mathbf{x}_T \sim$ Uniform($\mathcal{V}$) or $\mathcal{N}(0, I)$ (depending on forward process)
+\STATE $\mathbf{w} \gets \text{Router}(\text{Enc}(c))$ \COMMENT{Identify relevant tasks}
+\STATE $t \gets T$
+\WHILE{$t \geq 1$}
+    \STATE $\mathbf{x}_{t}^{\text{base}} \gets f_{\theta_0}(\mathbf{x}_t, t, c)$ \COMMENT{Frozen base denoising}
+    \STATE $\boldsymbol{\delta} \gets \mathbf{0}$
+    \STATE $j \gets 1$
+    \WHILE{$j \leq M$} \COMMENT{Aggregate task-specific perturbations}
+        \STATE $i \gets 1$
+        \WHILE{$i \leq k$}
+            \STATE $\boldsymbol{\delta} \gets \boldsymbol{\delta} + w_j \cdot \sigma(t) \cdot g_{\phi_i^{(j)}}(\mathbf{x}_t, t, c)$
+            \STATE $i \gets i + 1$
+        \ENDWHILE
+        \STATE $j \gets j + 1$
+    \ENDWHILE
+    \STATE $\mathbf{x}_{t-1} \gets \mathbf{x}_t^{\text{base}} + \boldsymbol{\delta}$
+    \STATE $t \gets t - 1$
+\ENDWHILE
+\STATE \textbf{Return:} $\mathbf{x}_0$
 \end{algorithmic}
 \end{algorithm}
 
