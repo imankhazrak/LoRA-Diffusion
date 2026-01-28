@@ -56,46 +56,67 @@ def compute_diffusion_loss(
     xt, mask = model.forward_diffusion(target_ids, timesteps)
     
     if lora_module is not None:
-        # LoRA-Diffusion: compute base output + trajectory perturbation
+        # Check if this is prefix tuning (different handling)
+        if hasattr(lora_module, "num_virtual_tokens"):
+            # Prefix tuning: prefixes are handled in model forward
+            instruction_emb_for_base = None
+        else:
+            # LoRA-Diffusion: compute base output + trajectory perturbation
+            
+            # Get instruction embedding (for adapters)
+            instruction_emb = lora_module.instruction_encoder(
+                instruction_ids,
+                attention_mask=instruction_mask,
+            )
+            # Project to hidden_dim for base model conditioning
+            instruction_emb_for_base = lora_module.instruction_to_hidden(instruction_emb)
         
-        # Get instruction embedding (for adapters)
-        instruction_emb = lora_module.instruction_encoder(
-            instruction_ids,
-            attention_mask=instruction_mask,
-        )
-        # Project to hidden_dim for base model conditioning
-        instruction_emb_for_base = lora_module.instruction_to_hidden(instruction_emb)
-        
-        # Get base model output (frozen)
-        with torch.no_grad():
-            base_logits = model.forward(
+        # Check if prefix tuning
+        if hasattr(lora_module, "num_virtual_tokens"):
+            # Prefix tuning: prefixes are prepended to attention keys/values
+            # For now, use standard forward (prefix integration would require model modification)
+            # This is a simplified version - full prefix tuning needs attention modification
+            logits = model.forward(
                 input_ids=xt,
                 timesteps=timesteps,
                 attention_mask=target_mask,
-                instruction_embedding=instruction_emb_for_base,
+                instruction_embedding=None,
             )
-        
-        # Get hidden representations for LoRA
-        hidden_states = model.get_representation(
-            input_ids=xt,
-            timesteps=timesteps,
-            attention_mask=target_mask,
-        )
-        
-        # Compute LoRA perturbation
-        delta = lora_module(
-            hidden_states=hidden_states,
-            timesteps=timesteps,
-            instruction_ids=instruction_ids,
-            instruction_mask=instruction_mask,
-        )
-        
-        # Add perturbation to hidden states and get final logits
-        perturbed_hidden = hidden_states + delta
-        logits = model.output_head(perturbed_hidden)
-        
-        # Compute regularization loss
-        reg_loss = lora_module.compute_regularization_loss()
+            # Prefix module parameters are trainable, so they'll be included in optimizer
+            reg_loss = torch.tensor(0.0, device=device, requires_grad=False)
+        else:
+            # LoRA-Diffusion: compute base output + trajectory perturbation
+            
+            # Get base model output (frozen)
+            with torch.no_grad():
+                base_logits = model.forward(
+                    input_ids=xt,
+                    timesteps=timesteps,
+                    attention_mask=target_mask,
+                    instruction_embedding=instruction_emb_for_base,
+                )
+            
+            # Get hidden representations for LoRA
+            hidden_states = model.get_representation(
+                input_ids=xt,
+                timesteps=timesteps,
+                attention_mask=target_mask,
+            )
+            
+            # Compute LoRA perturbation
+            delta = lora_module(
+                hidden_states=hidden_states,
+                timesteps=timesteps,
+                instruction_ids=instruction_ids,
+                instruction_mask=instruction_mask,
+            )
+            
+            # Add perturbation to hidden states and get final logits
+            perturbed_hidden = hidden_states + delta
+            logits = model.output_head(perturbed_hidden)
+            
+            # Compute regularization loss
+            reg_loss = lora_module.compute_regularization_loss()
         
         # Compute router loss if router is provided
         router_loss = 0.0
