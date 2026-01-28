@@ -7,6 +7,24 @@ from pathlib import Path
 import sys
 import os
 
+# Set cache directories BEFORE importing any libraries that might use them
+# This prevents read-only filesystem errors
+# Force override even if set to /data (read-only)
+cache_base = Path(__file__).parent.parent / "data"
+cache_base.mkdir(parents=True, exist_ok=True)
+
+# Force set cache directories (override any existing /data paths)
+os.environ["HF_HOME"] = str(cache_base / "hf_cache")
+os.environ["TRANSFORMERS_CACHE"] = str(cache_base / "transformers_cache")
+os.environ["HF_DATASETS_CACHE"] = str(cache_base / "datasets_cache")
+os.environ["TORCH_HOME"] = str(cache_base / "torch_cache")
+os.environ["HUGGINGFACE_HUB_CACHE"] = str(cache_base / "hub_cache")
+
+# Create all cache directories
+for cache_name in ["hf_cache", "transformers_cache", "datasets_cache", "torch_cache", "hub_cache"]:
+    cache_dir = cache_base / cache_name
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
 import torch
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
@@ -164,8 +182,31 @@ def setup_model(config, method_name):
         logger.info(f"BitFit: {count} trainable parameters")
         
     elif method_name == "prefix_tuning":
-        logger.warning("Prefix tuning not fully implemented - using full fine-tuning")
-        # Would need to integrate PrefixTuningModule into model architecture
+        # Create prefix tuning module
+        from src.models.baselines import PrefixTuningModule
+        prefix_config = config.get("prefix", {})
+        num_virtual_tokens = prefix_config.get("num_virtual_tokens", 32)
+        prefix_hidden_dim = prefix_config.get("prefix_hidden_dim", 512)
+        reparameterization = prefix_config.get("reparameterization", True)
+        
+        prefix_module = PrefixTuningModule(
+            num_layers=base_model.num_layers,
+            num_virtual_tokens=num_virtual_tokens,
+            hidden_dim=base_model.hidden_dim,
+            num_heads=base_model.num_heads,
+            prefix_hidden_dim=prefix_hidden_dim,
+            reparameterization=reparameterization,
+            dropout=prefix_config.get("prefix_dropout", 0.1),
+        )
+        logger.info(f"Created prefix tuning module with {num_virtual_tokens} virtual tokens")
+        
+        # Store prefix module for use in training
+        base_model.prefix_module = prefix_module
+        lora_module = prefix_module  # Use same variable name for compatibility
+        
+        # Log parameter count
+        prefix_params = sum(p.numel() for p in prefix_module.parameters() if p.requires_grad)
+        logger.info(f"Prefix tuning parameters: {prefix_params:,}")
         
     elif method_name == "full_ft":
         logger.info("Using full fine-tuning")
