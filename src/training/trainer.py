@@ -9,8 +9,14 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from torch.cuda.amp import autocast, GradScaler
+from torch.cuda.amp import GradScaler
 from tqdm import tqdm
+
+# Prefer torch.amp.autocast (PyTorch 2.0+) to avoid deprecation warning
+if hasattr(torch.amp, "autocast"):
+    _autocast = lambda **kw: torch.amp.autocast("cuda", **kw)
+else:
+    from torch.cuda.amp import autocast as _autocast
 import json
 
 from .losses import compute_diffusion_loss
@@ -80,6 +86,7 @@ class DiffusionTrainer:
         self.global_step = 0
         self.best_metric = float("-inf")
         self.training_history = []
+        self.evaluation_history = []  # Track evaluation metrics
         
         # Count parameters
         self._log_parameter_counts()
@@ -131,7 +138,7 @@ class DiffusionTrainer:
             # Extract task labels if present
             task_labels = batch.get("task_labels", None)
             
-            with autocast(enabled=self.use_amp, dtype=self.amp_dtype if self.use_amp else torch.float32):
+            with _autocast(enabled=self.use_amp, dtype=self.amp_dtype if self.use_amp else torch.float32):
                 loss, metrics = compute_diffusion_loss(
                     model=self.model,
                     batch=batch,
@@ -213,6 +220,17 @@ class DiffusionTrainer:
                     eval_metrics = self.evaluate()
                     logger.info(f"Eval metrics: {eval_metrics}")
                     
+                    # Record evaluation metrics
+                    self.evaluation_history.append({
+                        "step": self.global_step + 1,
+                        "metrics": eval_metrics,
+                    })
+                    
+                    # Save evaluation metrics to file immediately
+                    eval_history_path = self.output_dir / "evaluation_history.json"
+                    with open(eval_history_path, "w") as f:
+                        json.dump(self.evaluation_history, f, indent=2)
+                    
                     # Save best model
                     primary_metric = eval_metrics.get(
                         self.config["metrics"]["primary"],
@@ -246,6 +264,26 @@ class DiffusionTrainer:
         history_path = self.output_dir / "training_history.json"
         with open(history_path, "w") as f:
             json.dump(self.training_history, f, indent=2)
+        logger.info(f"Saved training history to {history_path}")
+        
+        # Save evaluation history (final save)
+        eval_history_path = self.output_dir / "evaluation_history.json"
+        with open(eval_history_path, "w") as f:
+            json.dump(self.evaluation_history, f, indent=2)
+        logger.info(f"Saved evaluation history to {eval_history_path}")
+        
+        # Save final summary
+        summary = {
+            "total_steps": self.global_step,
+            "best_metric": self.best_metric,
+            "final_training_metrics": self.training_history[-1]["metrics"] if self.training_history else {},
+            "final_eval_metrics": self.evaluation_history[-1]["metrics"] if self.evaluation_history else {},
+            "config": self.config,
+        }
+        summary_path = self.output_dir / "training_summary.json"
+        with open(summary_path, "w") as f:
+            json.dump(summary, f, indent=2)
+        logger.info(f"Saved training summary to {summary_path}")
     
     @torch.no_grad()
     def evaluate(self) -> Dict[str, float]:
@@ -265,7 +303,7 @@ class DiffusionTrainer:
         for batch in tqdm(self.eval_dataloader, desc="Evaluating"):
             task_labels = batch.get("task_labels", None)
             
-            with autocast(enabled=self.use_amp, dtype=self.amp_dtype if self.use_amp else torch.float32):
+            with _autocast(enabled=self.use_amp, dtype=self.amp_dtype if self.use_amp else torch.float32):
                 loss, metrics = compute_diffusion_loss(
                     model=self.model,
                     batch=batch,
@@ -317,12 +355,36 @@ class DiffusionTrainer:
         
         # Save optimizer and scheduler
         optimizer_path = checkpoint_path / "optimizer.pt"
-        torch.save({
+        checkpoint_data = {
             "optimizer": self.optimizer.state_dict(),
             "scheduler": self.scheduler.state_dict(),
             "step": self.global_step,
             "best_metric": self.best_metric,
-        }, optimizer_path)
+        }
+        
+        # Include latest evaluation metrics if available
+        if self.evaluation_history:
+            checkpoint_data["latest_eval_metrics"] = self.evaluation_history[-1]["metrics"]
+            checkpoint_data["latest_eval_step"] = self.evaluation_history[-1]["step"]
+        
+        torch.save(checkpoint_data, optimizer_path)
+        
+        # Save checkpoint metadata as JSON for easy inspection
+        metadata = {
+            "checkpoint_name": name,
+            "step": self.global_step,
+            "best_metric": self.best_metric,
+            "has_model": any(p.requires_grad for p in self.model.parameters()),
+            "has_lora": self.lora_module is not None,
+            "has_router": self.router is not None,
+        }
+        if self.evaluation_history:
+            metadata["latest_eval_metrics"] = self.evaluation_history[-1]["metrics"]
+            metadata["latest_eval_step"] = self.evaluation_history[-1]["step"]
+        
+        metadata_path = checkpoint_path / "checkpoint_metadata.json"
+        with open(metadata_path, "w") as f:
+            json.dump(metadata, f, indent=2)
         
         logger.info(f"Saved checkpoint to {checkpoint_path}")
     
