@@ -3,8 +3,8 @@
 task:
   name: "sst2"
   type: "classification"
-  dataset: "glue"
-  dataset_config: "sst2"
+  dataset: "SetFit/sst2"  # Alternative dataset source
+  dataset_config: null  # No config needed for this dataset
   
   split_names:
     train: "train"
