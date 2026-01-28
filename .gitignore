@@ -1,0 +1,51 @@
+# Override global gitignore for scripts folder
+# The global gitignore ignores [Ss]cripts, but we need this folder
+!/scripts/
+!/scripts/*.py
+
+# Standard Python ignores
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+outputs/
+checkpoints/
+logs/
+data/cache/
+*.pt
+*.pth
+*.ckpt
