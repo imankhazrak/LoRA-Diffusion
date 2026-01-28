@@ -463,7 +463,7 @@ MIT License - see LICENSE file for details.
 
 - Iman Khazrak (ikhazra@bgsu.edu)
 - Robert Green (greenr@bgsu.edu)
-- Issues: https://github.com/[username]/lora-diffusion/issues
+
 
 ## Acknowledgments
 
