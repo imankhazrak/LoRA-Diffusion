@@ -1,0 +1,14 @@
+# BitFit Configuration (Bias-only Fine-Tuning)
+
+method:
+  name: "bitfit"
+  type: "bias_only"
+  
+  # Freeze all parameters except biases
+  freeze_base: true
+  trainable_params:
+    - "bias"
+  
+  # BitFit-specific settings
+  bitfit:
+    train_layer_norm: true  # Also train LayerNorm parameters

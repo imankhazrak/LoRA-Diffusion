@@ -1,0 +1,33 @@
+# SST-2 (Sentiment Classification) Task Configuration
+
+task:
+  name: "sst2"
+  type: "classification"
+  dataset: "glue"
+  dataset_config: "sst2"
+  
+  split_names:
+    train: "train"
+    validation: "validation"
+    test: "validation"  # SST-2 test set requires submission
+  
+  # Input/output format
+  input_column: "sentence"
+  label_column: "label"
+  num_labels: 2
+  label_names: ["negative", "positive"]
+  
+  # Sequence length
+  max_seq_length: 128
+  
+  # Task-specific training
+  max_steps: 5000
+  eval_frequency: 250
+  
+  # Instruction template
+  instruction_template: "Classify the sentiment of the following sentence as positive or negative: {input}"
+  
+# Metrics
+metrics:
+  primary: "accuracy"
+  secondary: ["f1"]

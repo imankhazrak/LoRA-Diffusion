@@ -1,0 +1,20 @@
+# Adapter Layers Configuration
+
+method:
+  name: "adapters"
+  type: "adapter"
+  
+  # Freeze base model
+  freeze_base: true
+  
+  # Adapter parameters
+  adapter:
+    bottleneck_dim: 256  # Bottleneck dimension
+    non_linearity: "relu"  # Activation function
+    adapter_dropout: 0.1
+    scaling: 1.0  # Output scaling factor
+    
+    # Where to insert adapters
+    insert_after:
+      - "attention"
+      - "ffn"

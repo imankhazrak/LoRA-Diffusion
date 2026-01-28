@@ -1,0 +1,24 @@
+# Weight LoRA Baseline Configuration
+
+method:
+  name: "weight_lora"
+  type: "weight_lora"
+  
+  # Freeze base model except LoRA
+  freeze_base: true
+  
+  # Weight LoRA parameters
+  lora:
+    rank: 64  # Uniform rank across all layers
+    alpha: 16  # LoRA scaling factor
+    dropout: 0.1
+    
+    # Which modules to apply LoRA to
+    target_modules:
+      - "query"
+      - "key"
+      - "value"
+      - "output"
+    
+    # Initialization
+    init_scale: 0.01

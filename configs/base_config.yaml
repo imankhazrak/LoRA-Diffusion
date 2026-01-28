@@ -1,0 +1,119 @@
+# Base configuration for LoRA-Diffusion
+# Override specific values via command line or task-specific configs
+
+# Model architecture
+model:
+  type: "masked_diffusion_transformer"
+  hidden_dim: 768
+  num_layers: 12
+  num_heads: 12
+  ffn_dim: 3072
+  vocab_size: 30522
+  max_seq_length: 512
+  dropout: 0.1
+  attention_dropout: 0.1
+  gradient_checkpointing: false
+  compile: false  # PyTorch 2.0 compile (experimental)
+
+# Diffusion process
+diffusion:
+  num_steps: 100  # T
+  schedule: "cosine"  # "linear" or "cosine"
+  forward_type: "mask"  # "mask" or "uniform"
+  mask_token_id: 103  # [MASK] token ID
+  beta_start: 0.0001
+  beta_end: 0.02
+
+# LoRA-Diffusion specific parameters
+lora:
+  # Step-adaptive rank allocation
+  rank_early: 64    # for t > 2T/3
+  rank_mid: 32      # for T/3 < t <= 2T/3
+  rank_late: 8      # for t <= T/3
+  
+  # Step-adaptive scaling
+  scaling_early: 1.0    # σ for early steps
+  scaling_mid: 0.5      # σ for middle steps
+  scaling_late: 0.25    # σ for late steps
+  
+  # Number of LoRA modules per step
+  num_modules: 2  # k
+  
+  # Regularization
+  rank_reg_weight: 0.01    # λ_rank (nuclear norm approx)
+  orth_reg_weight: 0.001   # λ_orth (orthogonality)
+  
+  # Instruction conditioning
+  instruction_encoder_hidden: 256
+  instruction_encoder_layers: 2
+
+# Training parameters
+training:
+  # Optimization
+  learning_rate: 1.0e-4
+  weight_decay: 0.01
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  adam_epsilon: 1.0e-8
+  max_grad_norm: 1.0
+  
+  # Schedule
+  lr_scheduler: "cosine"  # "cosine", "linear", "constant"
+  warmup_steps: 500
+  max_steps: 10000
+  
+  # Batch size and accumulation
+  batch_size: 64
+  gradient_accumulation_steps: 1
+  eval_batch_size: 128
+  
+  # Mixed precision
+  mixed_precision: "bf16"  # "no", "fp16", "bf16"
+  
+  # Logging and evaluation
+  logging_steps: 10
+  eval_frequency: 500
+  save_frequency: 1000
+  save_total_limit: 3
+  
+  # Reproducibility
+  seed: 42
+  deterministic: true
+
+# Data loading
+data:
+  cache_dir: "./data/cache"
+  num_workers: 4
+  pin_memory: true
+  prefetch_factor: 2
+  max_train_samples: null  # null for full dataset
+  max_eval_samples: null
+
+# Output and checkpointing
+output:
+  base_dir: "./outputs"
+  checkpoint_dir: "./checkpoints"
+  log_dir: "./logs"
+  save_predictions: true
+  save_metrics: true
+
+# Experiment tracking (optional)
+wandb:
+  enabled: false
+  project: "lora-diffusion"
+  entity: null
+  run_name: null
+  tags: []
+
+# Multi-task composition
+multi_task:
+  enabled: false  # Set to true for multi-task training with router
+  num_tasks: null  # Number of tasks (auto-detected from task_names)
+  router_hidden_dim: 512  # Router MLP hidden dimension
+  router_loss_weight: 1.0  # Weight for router loss in total loss
+  task_names: []  # List of task names for composition (e.g., ["sst2", "squad", "xsum"])
+
+# Distributed training (optional)
+distributed:
+  backend: "nccl"
+  find_unused_parameters: false

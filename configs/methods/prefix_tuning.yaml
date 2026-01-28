@@ -1,0 +1,15 @@
+# Prefix Tuning Configuration
+
+method:
+  name: "prefix_tuning"
+  type: "prefix"
+  
+  # Freeze base model
+  freeze_base: true
+  
+  # Prefix tuning parameters
+  prefix:
+    num_virtual_tokens: 32  # Prefix length
+    prefix_hidden_dim: 512  # Hidden dim for prefix MLP
+    reparameterization: true  # Use MLP reparameterization
+    prefix_dropout: 0.1

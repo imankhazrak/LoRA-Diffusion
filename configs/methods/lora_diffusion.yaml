@@ -1,0 +1,28 @@
+# LoRA-Diffusion Method Configuration
+
+method:
+  name: "lora_diffusion"
+  type: "trajectory_lora"
+  
+  # Freeze base model
+  freeze_base: true
+  
+  # LoRA parameters (can override base_config.yaml)
+  lora:
+    rank_early: 64
+    rank_mid: 32
+    rank_late: 8
+    scaling_early: 1.0
+    scaling_mid: 0.5
+    scaling_late: 0.25
+    num_modules: 2
+    rank_reg_weight: 0.01
+    orth_reg_weight: 0.001
+    instruction_encoder_hidden: 256
+    instruction_encoder_layers: 2
+    
+  # Activation function
+  activation: "relu"
+  
+  # Initialization
+  init_scale: 0.01  # Scale for initializing A, B matrices

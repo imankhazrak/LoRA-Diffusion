@@ -1,0 +1,13 @@
+# Full Fine-Tuning Configuration
+
+method:
+  name: "full_ft"
+  type: "full_finetune"
+  
+  # Train all parameters
+  freeze_base: false
+  
+  # May want to use lower learning rate for stability
+  training_overrides:
+    learning_rate: 5.0e-5
+    warmup_steps: 1000

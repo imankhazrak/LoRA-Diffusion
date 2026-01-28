@@ -1,0 +1,33 @@
+# XSum (Summarization) Task Configuration
+
+task:
+  name: "xsum"
+  type: "summarization"
+  dataset: "xsum"
+  dataset_config: null
+  
+  split_names:
+    train: "train"
+    validation: "validation"
+    test: "test"
+  
+  # Input/output format
+  input_column: "document"
+  target_column: "summary"
+  
+  # Sequence length
+  max_input_length: 512
+  max_target_length: 64
+  
+  # Task-specific training
+  max_steps: 15000
+  eval_frequency: 750
+  batch_size: 32  # Smaller for longer sequences
+  
+  # Instruction template
+  instruction_template: "Summarize the following article in one sentence:\n{input}\nSummary:"
+  
+# Metrics
+metrics:
+  primary: "rouge_l"
+  secondary: ["rouge_1", "rouge_2"]

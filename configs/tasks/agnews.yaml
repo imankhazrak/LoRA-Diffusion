@@ -1,0 +1,33 @@
+# AGNews (Topic Classification) Task Configuration
+
+task:
+  name: "agnews"
+  type: "classification"
+  dataset: "ag_news"
+  dataset_config: null
+  
+  split_names:
+    train: "train"
+    validation: "test"  # AGNews doesn't have validation split
+    test: "test"
+  
+  # Input/output format
+  input_column: "text"
+  label_column: "label"
+  num_labels: 4
+  label_names: ["World", "Sports", "Business", "Sci/Tech"]
+  
+  # Sequence length
+  max_seq_length: 256
+  
+  # Task-specific training
+  max_steps: 8000
+  eval_frequency: 400
+  
+  # Instruction template
+  instruction_template: "Classify the topic of the following news article (World, Sports, Business, or Sci/Tech): {input}"
+  
+# Metrics
+metrics:
+  primary: "accuracy"
+  secondary: ["f1"]
