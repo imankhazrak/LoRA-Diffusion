@@ -103,12 +103,44 @@ class SST2Loader:
         max_samples: Optional[int] = None,
     ) -> List[TaskExample]:
         """Load SST-2 dataset."""
-        dataset = load_dataset(
-            task_config["dataset"],
-            task_config.get("dataset_config"),
-            split=task_config["split_names"][split],
-            cache_dir=cache_dir,
-        )
+        import time
+        max_retries = 3
+        retry_delay = 5
+        
+        for attempt in range(max_retries):
+            try:
+                # Try loading dataset
+                dataset = load_dataset(
+                    task_config["dataset"],
+                    task_config.get("dataset_config"),
+                    split=task_config["split_names"][split],
+                    cache_dir=cache_dir,
+                )
+                break
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"Failed to load dataset (attempt {attempt + 1}/{max_retries}): {e}")
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    # Last attempt: try without dataset_config (use default)
+                    try:
+                        logger.warning("Trying alternative dataset loading method...")
+                        if task_config.get("dataset_config"):
+                            dataset = load_dataset(
+                                task_config["dataset"],
+                                split=task_config["split_names"][split],
+                                cache_dir=cache_dir,
+                            )
+                            # Filter to the specific config if needed
+                            if hasattr(dataset, task_config["dataset_config"]):
+                                dataset = dataset[task_config["dataset_config"]]
+                        else:
+                            raise
+                    except Exception as e2:
+                        logger.error(f"Failed to load dataset after {max_retries} attempts and fallback: {e2}")
+                        raise e2
         
         if max_samples:
             dataset = dataset.select(range(min(max_samples, len(dataset))))
@@ -121,9 +153,13 @@ class SST2Loader:
         )
         
         for item in dataset:
-            input_text = item[task_config["input_column"]]
-            label_id = item[task_config["label_column"]]
-            label_text = label_names[label_id]
+            # Handle different dataset formats
+            input_text = item.get(task_config["input_column"], item.get("text", item.get("sentence", "")))
+            label_id = item.get(task_config["label_column"], item.get("label", 0))
+            # Handle both integer and string labels
+            if isinstance(label_id, str):
+                label_id = label_names.index(label_id) if label_id in label_names else int(label_id)
+            label_text = label_names[label_id] if label_id < len(label_names) else str(label_id)
             
             instruction = instruction_template.format(input=input_text)
             
@@ -149,12 +185,28 @@ class SQuADLoader:
         max_samples: Optional[int] = None,
     ) -> List[TaskExample]:
         """Load SQuAD dataset."""
-        dataset = load_dataset(
-            task_config["dataset"],
-            task_config.get("dataset_config"),
-            split=task_config["split_names"][split],
-            cache_dir=cache_dir,
-        )
+        import time
+        max_retries = 3
+        retry_delay = 5
+        
+        for attempt in range(max_retries):
+            try:
+                dataset = load_dataset(
+                    task_config["dataset"],
+                    task_config.get("dataset_config"),
+                    split=task_config["split_names"][split],
+                    cache_dir=cache_dir,
+                )
+                break
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"Failed to load dataset (attempt {attempt + 1}/{max_retries}): {e}")
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                else:
+                    logger.error(f"Failed to load dataset after {max_retries} attempts: {e}")
+                    raise
         
         if max_samples:
             dataset = dataset.select(range(min(max_samples, len(dataset))))
@@ -207,12 +259,28 @@ class XSumLoader:
         max_samples: Optional[int] = None,
     ) -> List[TaskExample]:
         """Load XSum dataset."""
-        dataset = load_dataset(
-            task_config["dataset"],
-            task_config.get("dataset_config"),
-            split=task_config["split_names"][split],
-            cache_dir=cache_dir,
-        )
+        import time
+        max_retries = 3
+        retry_delay = 5
+        
+        for attempt in range(max_retries):
+            try:
+                dataset = load_dataset(
+                    task_config["dataset"],
+                    task_config.get("dataset_config"),
+                    split=task_config["split_names"][split],
+                    cache_dir=cache_dir,
+                )
+                break
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"Failed to load dataset (attempt {attempt + 1}/{max_retries}): {e}")
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                else:
+                    logger.error(f"Failed to load dataset after {max_retries} attempts: {e}")
+                    raise
         
         if max_samples:
             dataset = dataset.select(range(min(max_samples, len(dataset))))
