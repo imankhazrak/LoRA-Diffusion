@@ -1,17 +1,18 @@
 #!/bin/bash
 #SBATCH --job-name=lora_diffusion
-#SBATCH --account=<your_account>          # CHANGE THIS: Your OSC account name
+#SBATCH --account=pcs0229                 # OSC account
 #SBATCH --time=24:00:00                  # Time limit (HH:MM:SS) - adjust as needed
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node=1                 # Number of GPUs (1-4 typically)
-#SBATCH --gpu-type=a100                   # GPU type: a100, v100, or leave empty for default
+#SBATCH --gres=gpu:1                      # Request GPU (alternative format)
+# Note: GPU type may be specified via partition or --gres=gpu:a100:1
 #SBATCH --cpus-per-task=8                # CPUs per task (adjust based on GPU count)
 #SBATCH --mem=128GB                       # Memory (adjust: 64GB for 1 GPU, 128GB for 2, etc.)
 #SBATCH --output=logs/slurm-%j.out       # Output log file
 #SBATCH --error=logs/slurm-%j.err         # Error log file
 #SBATCH --mail-type=BEGIN,END,FAIL        # Email notifications
-#SBATCH --mail-user=<your_email>          # CHANGE THIS: Your email address
+#SBATCH --mail-user=ikhazra@bgsu.edu      # Email for notifications
 
 ###############################################################################
 # OSC LoRA-Diffusion Job Script
@@ -57,7 +58,14 @@ module list
 echo ""
 
 # Activate virtual environment
-VENV_PATH=${VENV_PATH:-"$HOME/lora-diffusion/venv"}
+# Try multiple possible paths
+if [ -d "$HOME/LoRA-Diffusion/venv" ]; then
+    VENV_PATH="$HOME/LoRA-Diffusion/venv"
+elif [ -d "$HOME/lora-diffusion/venv" ]; then
+    VENV_PATH="$HOME/lora-diffusion/venv"
+else
+    VENV_PATH=${VENV_PATH:-"$HOME/LoRA-Diffusion/venv"}
+fi
 if [ ! -d "$VENV_PATH" ]; then
     echo "ERROR: Virtual environment not found at $VENV_PATH"
     echo "Please create it with: python -m venv $VENV_PATH"
@@ -72,18 +80,44 @@ echo "Python version: $(python --version)"
 echo "Python path: $(which python)"
 echo ""
 
-# Set environment variables for OSC scratch space
-export SCRATCH=/fs/scratch/users/$USER
-export HF_HOME=$SCRATCH/lora-diffusion/data/hf_cache
-export TRANSFORMERS_CACHE=$SCRATCH/lora-diffusion/data/transformers_cache
-export TORCH_HOME=$SCRATCH/lora-diffusion/data/torch_cache
+# Set environment variables for data/output directories EARLY (before any Python imports)
+# Try OSC scratch first, fall back to local directories
+if [ -d "/fs/scratch/users/$USER" ] && [ -w "/fs/scratch/users/$USER" ]; then
+    export SCRATCH=/fs/scratch/users/$USER
+    CACHE_BASE=$SCRATCH/lora-diffusion/data
+else
+    # Fall back to project directory
+    export SCRATCH=$PROJECT_DIR
+    CACHE_BASE=$PROJECT_DIR/data
+fi
 
-# Create necessary directories
-mkdir -p $SCRATCH/lora-diffusion/{data/{cache,hf_cache,transformers_cache,torch_cache},outputs,checkpoints,logs}
+# Set HuggingFace cache directories (must be set before any imports)
+export HF_HOME=$CACHE_BASE/hf_cache
+export TRANSFORMERS_CACHE=$CACHE_BASE/transformers_cache
+export HF_DATASETS_CACHE=$CACHE_BASE/datasets_cache
+export TORCH_HOME=$CACHE_BASE/torch_cache
+export HUGGINGFACE_HUB_CACHE=$CACHE_BASE/hub_cache
+
+# Create necessary directories (always create local logs)
+mkdir -p $CACHE_BASE/{cache,hf_cache,transformers_cache,datasets_cache,torch_cache,hub_cache}
+mkdir -p $PROJECT_DIR/{outputs,checkpoints,logs}
 mkdir -p logs
 
+echo "Cache directories:"
+echo "  HF_HOME: $HF_HOME"
+echo "  TRANSFORMERS_CACHE: $TRANSFORMERS_CACHE"
+echo "  HF_DATASETS_CACHE: $HF_DATASETS_CACHE"
+echo ""
+
 # Navigate to project directory
-PROJECT_DIR=${PROJECT_DIR:-"$HOME/lora-diffusion"}
+# Try multiple possible paths
+if [ -d "$HOME/LoRA-Diffusion" ]; then
+    PROJECT_DIR=${PROJECT_DIR:-"$HOME/LoRA-Diffusion"}
+elif [ -d "$HOME/lora-diffusion" ]; then
+    PROJECT_DIR=${PROJECT_DIR:-"$HOME/lora-diffusion"}
+else
+    PROJECT_DIR=${PROJECT_DIR:-"$HOME/LoRA-Diffusion"}
+fi
 if [ ! -d "$PROJECT_DIR" ]; then
     echo "ERROR: Project directory not found at $PROJECT_DIR"
     exit 1
@@ -115,8 +149,14 @@ JOB_TYPE=${JOB_TYPE:-"train"}            # train or evaluate
 CHECKPOINT_PATH=${CHECKPOINT_PATH:-}     # Required for evaluation
 
 # Output configuration
-OUTPUT_DIR=${OUTPUT_DIR:-"$SCRATCH/lora-diffusion/outputs/${TASK}_${METHOD}_${SLURM_JOB_ID}"}
-CHECKPOINT_DIR=${CHECKPOINT_DIR:-"$SCRATCH/lora-diffusion/checkpoints/${TASK}_${METHOD}_${SLURM_JOB_ID}"}
+# Use SCRATCH if available, otherwise use project directory
+if [ -d "$SCRATCH" ] && [ "$SCRATCH" != "$PROJECT_DIR" ]; then
+    OUTPUT_DIR=${OUTPUT_DIR:-"$SCRATCH/lora-diffusion/outputs/${TASK}_${METHOD}_${SLURM_JOB_ID}"}
+    CHECKPOINT_DIR=${CHECKPOINT_DIR:-"$SCRATCH/lora-diffusion/checkpoints/${TASK}_${METHOD}_${SLURM_JOB_ID}"}
+else
+    OUTPUT_DIR=${OUTPUT_DIR:-"$PROJECT_DIR/outputs/${TASK}_${METHOD}_${SLURM_JOB_ID}"}
+    CHECKPOINT_DIR=${CHECKPOINT_DIR:-"$PROJECT_DIR/checkpoints/${TASK}_${METHOD}_${SLURM_JOB_ID}"}
+fi
 
 # Create output directories
 mkdir -p $OUTPUT_DIR
@@ -174,7 +214,11 @@ if [ "$JOB_TYPE" == "train" ]; then
     
     # Add overrides
     CMD="$CMD --overrides"
-    CMD="$CMD data.cache_dir=$SCRATCH/lora-diffusion/data/cache"
+    if [ -d "$SCRATCH" ] && [ "$SCRATCH" != "$PROJECT_DIR" ]; then
+        CMD="$CMD data.cache_dir=$SCRATCH/lora-diffusion/data/cache"
+    else
+        CMD="$CMD data.cache_dir=$PROJECT_DIR/data/cache"
+    fi
     CMD="$CMD output.checkpoint_dir=$CHECKPOINT_DIR"
     
     # Optional overrides
