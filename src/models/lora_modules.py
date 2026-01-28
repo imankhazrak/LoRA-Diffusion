@@ -312,6 +312,10 @@ class LoRADiffusionModule(nn.Module):
             output_dim=instruction_hidden,
             num_layers=instruction_layers,
         )
+        # Project instruction embedding to hidden_dim for base model conditioning
+        self.instruction_to_hidden = nn.Linear(instruction_hidden, self.hidden_dim)
+        nn.init.zeros_(self.instruction_to_hidden.weight)
+        nn.init.zeros_(self.instruction_to_hidden.bias)
         
         # Create LoRA adapters for each phase and module
         # We create separate adapters for early/mid/late phases
@@ -476,6 +480,7 @@ class LoRADiffusionModule(nn.Module):
         """Count trainable parameters."""
         counts = {
             "instruction_encoder": sum(p.numel() for p in self.instruction_encoder.parameters()),
+            "instruction_to_hidden": sum(p.numel() for p in self.instruction_to_hidden.parameters()),
             "adapters_early": sum(
                 sum(p.numel() for p in adapter.parameters())
                 for adapter in self.adapters_early

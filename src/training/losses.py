@@ -58,11 +58,13 @@ def compute_diffusion_loss(
     if lora_module is not None:
         # LoRA-Diffusion: compute base output + trajectory perturbation
         
-        # Get instruction embedding
+        # Get instruction embedding (for adapters)
         instruction_emb = lora_module.instruction_encoder(
             instruction_ids,
             attention_mask=instruction_mask,
         )
+        # Project to hidden_dim for base model conditioning
+        instruction_emb_for_base = lora_module.instruction_to_hidden(instruction_emb)
         
         # Get base model output (frozen)
         with torch.no_grad():
@@ -70,7 +72,7 @@ def compute_diffusion_loss(
                 input_ids=xt,
                 timesteps=timesteps,
                 attention_mask=target_mask,
-                instruction_embedding=instruction_emb,
+                instruction_embedding=instruction_emb_for_base,
             )
         
         # Get hidden representations for LoRA
