@@ -85,11 +85,17 @@ def apply_weight_lora_to_model(
     import math
     
     count = 0
+    # Collect modules first to avoid recursion during modification
+    modules_to_modify = []
     for name, module in model.named_modules():
         # Check if this is a target module
         is_target = any(target in name.lower() for target in target_modules)
         
         if is_target and isinstance(module, nn.Linear):
+            modules_to_modify.append((name, module))
+    
+    # Now modify modules
+    for name, module in modules_to_modify:
             # Get dimensions
             in_features = module.in_features
             out_features = module.out_features
@@ -292,21 +298,43 @@ def apply_adapters_to_model(
     # In practice, would need model-specific insertion logic
     count = 0
     
+    # Get hidden_dim from model config
+    if hasattr(model, "hidden_dim"):
+        hidden_dim = model.hidden_dim
+    elif hasattr(model, "config") and "hidden_dim" in model.config.get("model", {}):
+        hidden_dim = model.config["model"]["hidden_dim"]
+    else:
+        hidden_dim = 768  # Default BERT hidden_dim
+    
+    # Collect modules first to avoid recursion during modification
+    modules_to_modify = []
     for name, module in model.named_modules():
-        should_insert = any(target in name.lower() for target in insert_after)
+        # Look for BERT encoder layers - insert adapters after the layer output
+        is_bert_layer = "transformer.encoder.layer" in name and name.endswith("layer")
+        is_attention_output = "attention.output" in name.lower()
+        is_ffn_output = "output" in name.lower() and "intermediate" not in name.lower() and "attention" not in name.lower()
         
-        if should_insert and hasattr(module, "forward"):
-            hidden_dim = None
-            
-            # Try to infer hidden dimension
-            if hasattr(module, "self_attn"):
-                hidden_dim = module.self_attn.embed_dim
-            elif hasattr(module, "intermediate"):
-                hidden_dim = module.intermediate.dense.out_features
-            
-            if hidden_dim is not None:
+        should_insert = False
+        actual_dim = hidden_dim
+        
+        if "ffn" in insert_after:
+            # Insert after FFN output (BertLayer.output)
+            if is_ffn_output and "layer" in name:
+                should_insert = True
+                actual_dim = hidden_dim  # Layer output is hidden_dim
+        elif "attention" in insert_after:
+            # Insert after attention output
+            if is_attention_output:
+                should_insert = True
+                actual_dim = hidden_dim  # Attention output is hidden_dim
+        
+        if should_insert and hasattr(module, "forward") and not hasattr(module, "adapter_module"):
+            modules_to_modify.append((name, module, actual_dim))
+    
+    # Now modify modules
+    for name, module, actual_dim in modules_to_modify:
                 adapter = AdapterModule(
-                    hidden_dim=hidden_dim,
+                    hidden_dim=actual_dim,  # Use actual dimension
                     bottleneck_dim=bottleneck_dim,
                 )
                 
@@ -325,7 +353,8 @@ def apply_adapters_to_model(
                             return output + adapter_module(output)
                     return forward_with_adapter
                 
-                module.forward = make_forward_with_adapter(original_forward, adapter)
+                wrapped_forward = make_forward_with_adapter(original_forward, adapter)
+                module.forward = wrapped_forward
                 module.adapter_module = adapter
                 count += 1
     
