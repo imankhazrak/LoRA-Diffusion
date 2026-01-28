@@ -195,6 +195,22 @@ output:
 
 ### Step 3: Submit Single Job
 
+**Option A: Using the configurable script (Recommended)**
+
+```bash
+# 1. Edit slurm/run_job.sh to set your account and email
+# 2. Submit with default settings:
+sbatch slurm/run_job.sh
+
+# 3. Or customize with environment variables:
+TASK=sst2 \
+METHOD=lora_diffusion \
+MAX_STEPS=5000 \
+sbatch slurm/run_job.sh
+```
+
+**Option B: Using the simple script**
+
 ```bash
 # Edit slurm/train.slurm to set your username/email
 sbatch slurm/train.slurm
@@ -206,6 +222,20 @@ sbatch slurm/train.slurm
 # Edit slurm/sweep_array.slurm for your experiments
 sbatch slurm/sweep_array.slurm
 ```
+
+### Step 5: Configure GPU and Time Resources
+
+Edit the SBATCH directives in `slurm/run_job.sh`:
+
+```bash
+#SBATCH --time=24:00:00          # Time limit (adjust as needed)
+#SBATCH --gpus-per-node=1        # Number of GPUs
+#SBATCH --gpu-type=a100          # GPU type: a100, v100, or empty
+#SBATCH --cpus-per-task=8        # CPUs (8 per GPU recommended)
+#SBATCH --mem=128GB              # Memory (64GB per GPU recommended)
+```
+
+See `slurm/README_SLURM.md` for detailed configuration options and templates.
 
 ### Monitor Jobs
 
