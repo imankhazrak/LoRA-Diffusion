@@ -1,0 +1,198 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyperFirstAtBeginDocument{\AtBeginDocument}
+\HyperFirstAtBeginDocument{\ifx\hyper@anchor\@undefined
+\global\let\oldcontentsline\contentsline
+\gdef\contentsline#1#2#3#4{\oldcontentsline{#1}{#2}{#3}}
+\global\let\oldnewlabel\newlabel
+\gdef\newlabel#1#2{\newlabelxx{#1}#2}
+\gdef\newlabelxx#1#2#3#4#5#6{\oldnewlabel{#1}{{#2}{#3}}}
+\AtEndDocument{\ifx\hyper@anchor\@undefined
+\let\contentsline\oldcontentsline
+\let\newlabel\oldnewlabel
+\fi}
+\fi}
+\global\let\hyper@last\relax 
+\gdef\HyperFirstAtBeginDocument#1{#1}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{brown2020language}
+\citation{hu2021lora}
+\citation{lou2023discrete,sahoo2024masked}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.1}Motivation}{1}{subsection.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.2}The Gap: Diffusion Models Lack Parameter-Efficient Methods}{2}{subsection.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.3}Our Approach: Trajectory-Level Low-Rank Adaptation}{2}{subsection.1.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.4}Contributions}{3}{subsection.1.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.5}Paper Organization}{3}{subsection.1.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}Background and Preliminaries}{3}{section.2}\protected@file@percent }
+\newlabel{sec:background}{{2}{3}{Background and Preliminaries}{section.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Discrete Diffusion Language Models}{3}{subsection.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.1.1}Forward Process}{3}{subsubsection.2.1.1}\protected@file@percent }
+\citation{austin2021structured}
+\citation{austin2021structured}
+\citation{hu2021lora}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.1.2}Reverse Process}{4}{subsubsection.2.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.1.3}Training Objective}{4}{subsubsection.2.1.3}\protected@file@percent }
+\newlabel{eq:simple_loss}{{8}{4}{Training Objective}{equation.2.8}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.1.4}Conditional Generation}{4}{subsubsection.2.1.4}\protected@file@percent }
+\citation{aghajanyan2020intrinsic}
+\citation{zaken2021bitfit}
+\citation{li2021prefix}
+\citation{houlsby2019parameter}
+\citation{hu2021lora}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Low-Rank Adaptation (LoRA) for Autoregressive Models}{5}{subsection.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.1}Original LoRA}{5}{subsubsection.2.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.2}Why LoRA Works}{5}{subsubsection.2.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.3}Limitations for Diffusion Models}{5}{subsubsection.2.2.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Comparison of parameter-efficient fine-tuning methods\relax }}{6}{table.caption.1}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{tab:peft_comparison}{{1}{6}{Comparison of parameter-efficient fine-tuning methods\relax }{table.caption.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Parameter-Efficient Fine-Tuning Methods}{6}{subsection.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}LoRA-Diffusion: Methodology}{6}{section.3}\protected@file@percent }
+\newlabel{sec:method}{{3}{6}{LoRA-Diffusion: Methodology}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Core Idea: Trajectory-Level Low-Rank Adaptation}{6}{subsection.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.1.1}Motivation}{6}{subsubsection.3.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.1.2}Trajectory Decomposition}{6}{subsubsection.3.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Architecture Design}{7}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.2.1}Low-Rank Perturbation Module}{7}{subsubsection.3.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.2.2}Step-Adaptive Scaling}{7}{subsubsection.3.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.2.3}Step-Adaptive Rank Allocation}{7}{subsubsection.3.2.3}\protected@file@percent }
+\newlabel{eq:rank_schedule}{{16}{7}{Step-Adaptive Rank Allocation}{equation.3.16}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Training Objective}{8}{subsection.3.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.1}Main Loss Function}{8}{subsubsection.3.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.2}Hyperparameters}{8}{subsubsection.3.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Multi-Task Composition}{8}{subsection.3.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.4.1}Task-Specific LoRA Modules}{8}{subsubsection.3.4.1}\protected@file@percent }
+\citation{lou2023discrete}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.4.2}Composition Mechanism}{9}{subsubsection.3.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.4.3}Training the Router}{9}{subsubsection.3.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}Inference Procedure}{9}{subsection.3.5}\protected@file@percent }
+\@writefile{loa}{\contentsline {algorithm}{\numberline {1}{\ignorespaces LoRA-Diffusion Inference\relax }}{9}{algorithm.1}\protected@file@percent }
+\newlabel{alg:inference}{{1}{9}{LoRA-Diffusion Inference\relax }{algorithm.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.6}Implementation Details}{10}{subsection.3.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.6.1}Base Model Architecture}{10}{subsubsection.3.6.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Base model configurations\relax }}{10}{table.caption.2}\protected@file@percent }
+\newlabel{tab:model_configs}{{2}{10}{Base model configurations\relax }{table.caption.2}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.6.2}LoRA Configuration}{10}{subsubsection.3.6.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces LoRA-Diffusion hyperparameters\relax }}{10}{table.caption.3}\protected@file@percent }
+\newlabel{tab:lora_hyperparams}{{3}{10}{LoRA-Diffusion hyperparameters\relax }{table.caption.3}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.6.3}Parameter Count Analysis}{10}{subsubsection.3.6.3}\protected@file@percent }
+\citation{tishby2000information}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Theoretical Analysis}{11}{section.4}\protected@file@percent }
+\newlabel{sec:theory}{{4}{11}{Theoretical Analysis}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Information-Theoretic Justification}{11}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.1.1}Intrinsic Dimensionality of Task Adaptation}{11}{subsubsection.4.1.1}\protected@file@percent }
+\newlabel{thm:low_rank}{{1}{11}{Low-Rank Structure of Task Adaptation}{theorem.1}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.1.2}Effective Rank of Trajectory Perturbations}{11}{subsubsection.4.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Step-Adaptive Rank: Information Flow Analysis}{11}{subsection.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.2.1}Mutual Information Across Diffusion Steps}{11}{subsubsection.4.2.1}\protected@file@percent }
+\newlabel{prop:info_flow}{{1}{11}{Information Flow in Diffusion}{proposition.1}{}}
+\citation{wang2022super}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Conceptual comparison: Weight LoRA vs. LoRA-Diffusion\relax }}{12}{table.caption.4}\protected@file@percent }
+\newlabel{tab:theory_comparison}{{4}{12}{Conceptual comparison: Weight LoRA vs. LoRA-Diffusion\relax }{table.caption.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Comparison with Weight-Based LoRA}{12}{subsection.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Experiments}{12}{section.5}\protected@file@percent }
+\newlabel{sec:experiments}{{5}{12}{Experiments}{section.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Experimental Setup}{12}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.1.1}Datasets}{12}{subsubsection.5.1.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Evaluation datasets\relax }}{12}{table.caption.5}\protected@file@percent }
+\newlabel{tab:datasets}{{5}{12}{Evaluation datasets\relax }{table.caption.5}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.1.2}Baselines}{12}{subsubsection.5.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.1.3}Evaluation Metrics}{13}{subsubsection.5.1.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Evaluation metrics by task type\relax }}{13}{table.caption.6}\protected@file@percent }
+\newlabel{tab:metrics_by_task}{{6}{13}{Evaluation metrics by task type\relax }{table.caption.6}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.1.4}Implementation Details}{13}{subsubsection.5.1.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Main Results}{14}{subsection.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.2.1}Performance vs. Trainable Parameters}{14}{subsubsection.5.2.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Average performance on SST-2 task (1.3B parameter model)\relax }}{14}{table.caption.7}\protected@file@percent }
+\newlabel{tab:main_results}{{7}{14}{Average performance on SST-2 task (1.3B parameter model)\relax }{table.caption.7}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.2.2}Per-Task Performance}{14}{subsubsection.5.2.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Detailed results on SST-2 sentiment classification task\relax }}{14}{table.caption.8}\protected@file@percent }
+\newlabel{tab:per_task_results}{{8}{14}{Detailed results on SST-2 sentiment classification task\relax }{table.caption.8}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Training and inference efficiency on SST-2 (1.3B model, batch size 64)\relax }}{15}{table.caption.9}\protected@file@percent }
+\newlabel{tab:efficiency}{{9}{15}{Training and inference efficiency on SST-2 (1.3B model, batch size 64)\relax }{table.caption.9}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.2.3}Efficiency Analysis}{15}{subsubsection.5.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Catastrophic Forgetting Analysis}{15}{subsection.5.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.3.1}Setup}{15}{subsubsection.5.3.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Training loss and convergence analysis on SST-2 (lower loss is better)\relax }}{15}{table.caption.10}\protected@file@percent }
+\newlabel{tab:forgetting}{{10}{15}{Training loss and convergence analysis on SST-2 (lower loss is better)\relax }{table.caption.10}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Multi-Task Composition}{16}{subsection.5.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.4.1}Zero-Shot Task Composition}{16}{subsubsection.5.4.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Method comparison summary on SST-2 task\relax }}{16}{table.caption.11}\protected@file@percent }
+\newlabel{tab:composition}{{11}{16}{Method comparison summary on SST-2 task\relax }{table.caption.11}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Ablation Studies and Analysis}{16}{section.6}\protected@file@percent }
+\newlabel{sec:analysis}{{6}{16}{Ablation Studies and Analysis}{section.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Rank Ablation}{16}{subsection.6.1}\protected@file@percent }
+\newlabel{sec:rank_analysis}{{6.1}{16}{Rank Ablation}{subsection.6.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Rank configuration ablation (average across 15 tasks)\relax }}{17}{table.caption.12}\protected@file@percent }
+\newlabel{tab:rank_ablation}{{12}{17}{Rank configuration ablation (average across 15 tasks)\relax }{table.caption.12}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Effective Rank Analysis}{17}{subsection.6.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Number of LoRA Modules}{17}{subsection.6.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces Effect of number of LoRA modules per step\relax }}{17}{table.caption.13}\protected@file@percent }
+\newlabel{tab:num_modules}{{13}{17}{Effect of number of LoRA modules per step\relax }{table.caption.13}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}Scaling Laws}{17}{subsection.6.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.4.1}Model Size Scaling}{17}{subsubsection.6.4.1}\protected@file@percent }
+\citation{austin2021structured}
+\citation{hoogeboom2021autoregressive}
+\@writefile{lot}{\contentsline {table}{\numberline {14}{\ignorespaces Performance vs. model size (average across 15 tasks)\relax }}{18}{table.caption.14}\protected@file@percent }
+\newlabel{tab:model_scaling}{{14}{18}{Performance vs. model size (average across 15 tasks)\relax }{table.caption.14}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.4.2}Data Efficiency}{18}{subsubsection.6.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.5}Visualization of Learned Trajectories}{18}{subsection.6.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.6}Comparison: Trajectory LoRA vs. Weight LoRA}{18}{subsection.6.6}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {15}{\ignorespaces Trajectory LoRA vs. Weight LoRA: Detailed comparison\relax }}{18}{table.caption.15}\protected@file@percent }
+\newlabel{tab:detailed_comparison}{{15}{18}{Trajectory LoRA vs. Weight LoRA: Detailed comparison\relax }{table.caption.15}{}}
+\citation{lou2023discrete}
+\citation{sahoo2024masked}
+\citation{li2022diffusion}
+\citation{hu2021lora}
+\citation{dettmers2023qlora}
+\citation{zhang2023adalora}
+\citation{li2021prefix}
+\citation{lester2021power}
+\citation{houlsby2019parameter}
+\citation{zaken2021bitfit}
+\citation{ilharco2022editing}
+\citation{wang2020orthogonal}
+\citation{fedus2022switch}
+\citation{aghajanyan2020intrinsic}
+\citation{li2018measuring}
+\citation{tishby2015deep}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Related Work}{19}{section.7}\protected@file@percent }
+\newlabel{sec:related}{{7}{19}{Related Work}{section.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Diffusion Models for Language}{19}{subsection.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Parameter-Efficient Fine-Tuning}{19}{subsection.7.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Multi-Task Learning}{19}{subsection.7.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.4}Theory of Low-Rank Adaptation}{19}{subsection.7.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}Conclusion and Future Work}{19}{section.8}\protected@file@percent }
+\newlabel{sec:conclusion}{{8}{19}{Conclusion and Future Work}{section.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}Summary of Contributions}{19}{subsection.8.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}Limitations}{20}{subsection.8.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.3}Future Directions}{20}{subsection.8.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {8.3.1}Short-Term Extensions}{20}{subsubsection.8.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {8.3.2}Long-Term Research Directions}{20}{subsubsection.8.3.2}\protected@file@percent }
+\bibstyle{plainnat}
+\bibcite{aghajanyan2020intrinsic}{{1}{2020}{{Aghajanyan et al.}}{{}}}
+\bibcite{austin2021structured}{{2}{2021}{{Austin et al.}}{{}}}
+\bibcite{brown2020language}{{3}{2020}{{Brown et al.}}{{}}}
+\bibcite{dettmers2023qlora}{{4}{2023}{{Dettmers et al.}}{{}}}
+\bibcite{fedus2022switch}{{5}{2022}{{Fedus et al.}}{{}}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.4}Broader Impact}{21}{subsection.8.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.5}Code and Reproducibility}{21}{subsection.8.5}\protected@file@percent }
+\bibcite{hoogeboom2021autoregressive}{{6}{2021}{{Hoogeboom et al.}}{{}}}
+\bibcite{houlsby2019parameter}{{7}{2019}{{Houlsby et al.}}{{}}}
+\bibcite{hu2021lora}{{8}{2021}{{Hu et al.}}{{}}}
+\bibcite{ilharco2022editing}{{9}{2022}{{Ilharco et al.}}{{}}}
+\bibcite{lester2021power}{{10}{2021}{{Lester et al.}}{{}}}
+\bibcite{li2018measuring}{{11}{2018}{{Li et al.}}{{}}}
+\bibcite{li2021prefix}{{12}{2021}{{Li et al.}}{{}}}
+\bibcite{li2022diffusion}{{13}{2022}{{Li et al.}}{{}}}
+\bibcite{lou2023discrete}{{14}{2023}{{Lou et al.}}{{}}}
+\bibcite{sahoo2024masked}{{15}{2024}{{Sahoo et al.}}{{}}}
+\bibcite{tishby2000information}{{16}{2000}{{Tishby et al.}}{{}}}
+\bibcite{tishby2015deep}{{17}{2015}{{Tishby and Zaslavsky}}{{}}}
+\bibcite{wang2020orthogonal}{{18}{2020}{{Wang et al.}}{{}}}
+\bibcite{wang2022super}{{19}{2022}{{Wang et al.}}{{}}}
+\bibcite{zaken2021bitfit}{{20}{2021}{{Zaken et al.}}{{}}}
+\bibcite{zhang2023adalora}{{21}{2023}{{Zhang et al.}}{{}}}
+\gdef \@abspage@last{22}
