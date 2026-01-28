@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoRA-Diffusion: A Simple Explanation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 15px;
+        }
+        
+        h2 {
+            color: #34495e;
+            font-size: 1.8em;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #ecf0f1;
+        }
+        
+        h3 {
+            color: #555;
+            font-size: 1.4em;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+        
+        p {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+        
+        ul, ol {
+            margin-left: 30px;
+            margin-bottom: 20px;
+        }
+        
+        li {
+            margin-bottom: 10px;
+        }
+        
+        strong {
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #e74c3c;
+        }
+        
+        pre {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            line-height: 1.5;
+        }
+        
+        pre code {
+            background-color: transparent;
+            color: inherit;
+            padding: 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 25px 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        th {
+            background-color: #3498db;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        
+        .highlight {
+            background-color: #fff3cd;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        
+        hr {
+            border: none;
+            border-top: 2px solid #ecf0f1;
+            margin: 40px 0;
+        }
+        
+        .summary-box {
+            background-color: #e8f4f8;
+            border-left: 4px solid #3498db;
+            padding: 20px;
+            margin: 30px 0;
+            border-radius: 4px;
+        }
+        
+        .summary-box ul {
+            margin-left: 20px;
+        }
+        
+        .key-finding {
+            background-color: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            h2 {
+                font-size: 1.5em;
+            }
+            
+            table {
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>LoRA-Diffusion: A Simple Explanation</h1>
+        
+        <h2>The Problem</h2>
+        <p>Large language models (like GPT, BERT) are great, but adapting them to specific tasks is expensive:</p>
+        <ul>
+            <li><strong>Full fine-tuning</strong>: Requires updating billions of parameters, needs lots of GPU memory and time</li>
+            <li><strong>Storage</strong>: Each task needs its own copy of the entire model (5+ GB per task)</li>
+            <li><strong>Existing solutions</strong>: Methods like LoRA work well for standard language models, but don't work well for <strong>diffusion models</strong></li>
+        </ul>
+        
+        <h3>What are Diffusion Models?</h3>
+        <p>Think of diffusion models like an artist who:</p>
+        <ol>
+            <li>Starts with random noise (a blank canvas with random colors)</li>
+            <li>Gradually removes noise step-by-step (refines the painting)</li>
+            <li>Ends with clean text (the final artwork)</li>
+        </ol>
+        <p>This is different from standard language models that predict one word at a time sequentially.</p>
+        
+        <h2>Our Solution: LoRA-Diffusion</h2>
+        <p>Instead of modifying the model's internal weights (like traditional LoRA), we modify <strong>the path the model takes</strong> during the denoising process.</p>
+        
+        <h3>Key Idea</h3>
+        <ul>
+            <li><strong>Traditional LoRA</strong>: Changes how the model transforms inputs → <code>W' = W + BA</code></li>
+            <li><strong>LoRA-Diffusion</strong>: Changes where the model moves in each denoising step → <code>x_{t-1} = base_path + learned_perturbation</code></li>
+        </ul>
+        
+        <p>Think of it like GPS navigation:</p>
+        <ul>
+            <li><strong>Base model</strong>: Knows the general route (pretrained knowledge)</li>
+            <li><strong>LoRA-Diffusion</strong>: Learns small adjustments to the route for specific tasks</li>
+            <li><strong>Result</strong>: Same destination, but optimized path for each task</li>
+        </ul>
+        
+        <h2>How It Works (Simply)</h2>
+        
+        <h3>1. Trajectory-Level Adaptation</h3>
+        <p>At each step of denoising, we add a small learned adjustment:</p>
+        <pre><code>Fine-tuned trajectory = Pretrained path + Low-rank adjustment</code></pre>
+        
+        <h3>2. Step-Adaptive Ranks</h3>
+        <p>Different steps need different amounts of adjustment:</p>
+        <ul>
+            <li><strong>Early steps</strong> (lots of noise): Need bigger adjustments → rank 64</li>
+            <li><strong>Middle steps</strong> (moderate noise): Need medium adjustments → rank 32</li>
+            <li><strong>Late steps</strong> (almost clean): Need small adjustments → rank 8</li>
+        </ul>
+        <p>This is like using a big brush for rough sketches, then a fine brush for details.</p>
+        
+        <h3>3. What We Actually Train</h3>
+        <ul>
+            <li><strong>Frozen</strong>: The entire base model (1.3 billion parameters)</li>
+            <li><strong>Trainable</strong>: Only small "adjustment modules" (~9-29 million parameters = 0.7% of model)</li>
+            <li><strong>Storage</strong>: 151 MB per task vs. 5.2 GB for full fine-tuning</li>
+        </ul>
+        
+        <h2>Results</h2>
+        
+        <h3>Performance on SST-2 (Sentiment Classification)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>Accuracy</th>
+                    <th>Trainable Parameters</th>
+                    <th>Storage</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Full Fine-Tuning</td>
+                    <td>82.13%</td>
+                    <td>100% (1.3B)</td>
+                    <td>5,200 MB</td>
+                </tr>
+                <tr style="background-color: #d4edda;">
+                    <td><strong>LoRA-Diffusion</strong></td>
+                    <td><strong>80.97%</strong></td>
+                    <td><strong>0.7% (9M)</strong></td>
+                    <td><strong>151 MB</strong></td>
+                </tr>
+                <tr>
+                    <td>Weight LoRA</td>
+                    <td>44.33%</td>
+                    <td>0.9%</td>
+                    <td>48 MB</td>
+                </tr>
+                <tr>
+                    <td>Adapters</td>
+                    <td>5.66%</td>
+                    <td>2.1%</td>
+                    <td>108 MB</td>
+                </tr>
+                <tr>
+                    <td>BitFit</td>
+                    <td>40.54%</td>
+                    <td>0.1%</td>
+                    <td>5.2 MB</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <h3>Key Findings</h3>
+        <div class="key-finding">
+            <ol>
+                <li><strong>98.6% of full fine-tuning performance</strong> with only 0.7% trainable parameters</li>
+                <li><strong>34x smaller storage</strong> (151 MB vs 5,200 MB per task)</li>
+                <li><strong>Outperforms other methods</strong> by large margins (36+ percentage points over weight LoRA)</li>
+                <li><strong>Better data efficiency</strong> - works well even with limited training data</li>
+            </ol>
+        </div>
+        
+        <h2>Why This Matters</h2>
+        
+        <h3>Practical Benefits</h3>
+        <ol>
+            <li><strong>Accessibility</strong>: Can fine-tune large models on consumer GPUs</li>
+            <li><strong>Scalability</strong>: Can maintain many task-specific models without massive storage</li>
+            <li><strong>Speed</strong>: Faster training and deployment</li>
+            <li><strong>Flexibility</strong>: Can combine multiple task modules at inference time</li>
+        </ol>
+        
+        <h3>Scientific Contribution</h3>
+        <ul>
+            <li><strong>First PEFT method</strong> designed specifically for diffusion language models</li>
+            <li><strong>Novel approach</strong>: Trajectory-level adaptation instead of weight-level</li>
+            <li><strong>Theoretical justification</strong>: Shows that trajectory perturbations have low intrinsic dimensionality</li>
+            <li><strong>Step-adaptive design</strong>: Recognizes that different diffusion steps need different capacities</li>
+        </ul>
+        
+        <h2>Technical Innovation</h2>
+        
+        <h3>What Makes It Different</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Aspect</th>
+                    <th>Traditional LoRA</th>
+                    <th>LoRA-Diffusion</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>What it modifies</td>
+                    <td>Model weights</td>
+                    <td>Denoising trajectory</td>
+                </tr>
+                <tr>
+                    <td>Where applied</td>
+                    <td>Parameter space</td>
+                    <td>Representation space</td>
+                </tr>
+                <tr>
+                    <td>Step awareness</td>
+                    <td>No</td>
+                    <td>Yes (adaptive ranks)</td>
+                </tr>
+                <tr>
+                    <td>Composition</td>
+                    <td>Limited</td>
+                    <td>Natural (can combine tasks)</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <h3>The Architecture</h3>
+        <pre><code>For each denoising step t:
+  1. Compute base model output (frozen)
+  2. Compute small LoRA adjustments (trainable)
+  3. Combine: final_output = base + adjustments</code></pre>
+        
+        <p>The adjustments are learned through:</p>
+        <ul>
+            <li><strong>Down-projection</strong>: Compress information (d → r dimensions)</li>
+            <li><strong>Up-projection</strong>: Expand back (r → d dimensions)</li>
+            <li><strong>Instruction conditioning</strong>: Task-specific via learned embeddings</li>
+        </ul>
+        
+        <h2>Limitations & Future Work</h2>
+        
+        <h3>Current Limitations</h3>
+        <ul>
+            <li>Requires some hyperparameter tuning (though defaults work well)</li>
+            <li>May need higher ranks for very complex tasks</li>
+            <li>Extra cost for multi-task router training</li>
+        </ul>
+        
+        <h3>Future Directions</h3>
+        <ul>
+            <li>Automated rank selection</li>
+            <li>Dynamic rank schedules</li>
+            <li>Integration with quantization (like QLoRA)</li>
+            <li>Extension to multi-modal diffusion models</li>
+        </ul>
+        
+        <h2>Summary</h2>
+        <div class="summary-box">
+            <p><strong>LoRA-Diffusion</strong> is a parameter-efficient fine-tuning method that:</p>
+            <ul>
+                <li>Modifies the <strong>denoising trajectory</strong> instead of model weights</li>
+                <li>Uses <strong>step-adaptive ranks</strong> (64/32/8) for efficiency</li>
+                <li>Achieves <strong>98.6% of full fine-tuning performance</strong> with <strong>0.7% trainable parameters</strong></li>
+                <li>Reduces <strong>storage by 34x</strong> (151 MB vs 5.2 GB per task)</li>
+                <li>Outperforms existing methods by <strong>large margins</strong></li>
+            </ul>
+            <p style="margin-top: 15px;">This makes diffusion language models more accessible and practical for real-world deployment.</p>
+        </div>
+        
+        <hr>
+        
+        <h2>For More Details</h2>
+        <ul>
+            <li><strong>Full paper</strong>: See <code>doc/Paper.pdf</code></li>
+            <li><strong>Code</strong>: See <code>README.md</code> for installation and usage</li>
+            <li><strong>Results</strong>: See <code>PAPER_RESULTS_SUMMARY.md</code> for detailed experimental results</li>
+            <li><strong>Implementation</strong>: See <code>IMPLEMENTATION_SUMMARY.md</code> for technical details</li>
+        </ul>
+    </div>
+</body>
+</html>
