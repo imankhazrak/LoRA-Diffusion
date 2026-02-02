@@ -1,0 +1,22 @@
+================================================================================
+MULTI-SEED STATISTICAL ANALYSIS SUMMARY
+================================================================================
+
+VALIDATION ACCURACY:
+--------------------------------------------------------------------------------
+full_ft             :  49.08 ±  0.00%  95% CI: [ 49.08,  49.08]  n=10
+lora_diffusion      :  49.44 ±  0.91%  95% CI: [ 48.87,  50.00]  n=10
+weight_lora         :  51.24 ±  0.49%  95% CI: [ 50.94,  51.54]  n=10
+adapters            :  49.00 ±  1.54%  95% CI: [ 48.05,  49.96]  n=10
+bitfit              :  49.08 ±  0.00%  95% CI: [ 49.08,  49.08]  n=10
+
+STATISTICAL ASSUMPTIONS:
+--------------------------------------------------------------------------------
+full_ft             : Normal=Yes (Shapiro-Wilk p=1.0000)
+lora_diffusion      : Normal=No (Shapiro-Wilk p=0.0010)
+weight_lora         : Normal=No (Shapiro-Wilk p=0.0025)
+adapters            : Normal=Yes (Shapiro-Wilk p=0.2184)
+bitfit              : Normal=Yes (Shapiro-Wilk p=1.0000)
+Homogeneity of variance: No (Levene p=0.0001)
+
+================================================================================
