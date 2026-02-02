@@ -55,7 +55,9 @@ def example_basic_training():
     logger.info(f"Using device: {device}")
     
     # Load tokenizer
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+    tokenizer_name = config.get("tokenizer", {}).get("name", "bert-base-uncased")
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+    logger.info(f"Loaded tokenizer: {tokenizer_name}")
     
     # Load data
     train_dataset = get_task_loader(
