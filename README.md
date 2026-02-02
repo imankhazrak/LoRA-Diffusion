@@ -10,7 +10,7 @@ This codebase implements LoRA-Diffusion, a novel parameter-efficient fine-tuning
 - **Step-adaptive ranks**: r=64/32/8 for early/middle/late diffusion steps
 - **Instruction conditioning**: Task-specific perturbations via conditioned up-projection
 - **Multi-task support**: Classification, QA, summarization, reasoning, translation, generation
-- **Efficient**: 0.7% trainable parameters, 98% of full fine-tuning performance
+- **Efficient**: 28.7% trainable parameters total (1.1% trajectory adapters only), 95.7% relative to full fine-tuning on SST-2
 
 ## Repository Structure
 
@@ -56,9 +56,12 @@ lora-diffusion/
 │       ├── logging_utils.py        # Logging setup
 │       └── checkpoint.py           # Checkpointing
 ├── scripts/                         # Training/eval scripts
-│   ├── train.py                    # Main training script
-│   ├── evaluate.py                 # Evaluation script
-│   └── run_experiments.py          # Batch experiments
+│   ├── train.py                    # Main training script (--seed for reproducibility)
+│   ├── evaluate.py                 # Evaluation script (greedy sampling, fixed seq length)
+│   ├── run_experiments.py          # Batch experiments
+│   ├── analyze_effective_rank.py   # Effective rank from singular value spectra
+│   ├── measure_latency.py          # Runtime overhead measurement
+│   └── verify_table_consistency.py # Check table numbers vs parameter_counts
 ├── slurm/                          # SLURM job scripts
 │   ├── train.slurm                 # Single training job
 │   └── sweep_array.slurm           # Job array for sweeps
