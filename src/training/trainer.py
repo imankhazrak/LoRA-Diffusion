@@ -155,7 +155,7 @@ class DiffusionTrainer:
             else:
                 loss.backward()
             
-            # Accumulate metrics
+            # Accumulate metrics (per-batch average, same as training log)
             accumulated_loss += loss.item()
             for key, value in metrics.items():
                 accumulated_metrics[key] = accumulated_metrics.get(key, 0.0) + value
@@ -191,7 +191,6 @@ class DiffusionTrainer:
                 if (self.global_step + 1) % self.logging_steps == 0:
                     step_time = time.time() - step_start_time
                     lr = self.scheduler.get_last_lr()[0]
-                    
                     avg_metrics = {k: v / self.logging_steps for k, v in accumulated_metrics.items()}
                     
                     log_str = f"Step {self.global_step + 1}/{self.max_steps} | "
@@ -232,8 +231,11 @@ class DiffusionTrainer:
                         json.dump(self.evaluation_history, f, indent=2)
                     
                     # Save best model
+                    # Get primary metric from config (task configs have metrics.primary)
+                    metrics_config = self.config.get("metrics", {})
+                    primary_metric_name = metrics_config.get("primary", "loss")
                     primary_metric = eval_metrics.get(
-                        self.config["metrics"]["primary"],
+                        primary_metric_name,
                         eval_metrics.get("loss", 0.0)
                     )
                     if primary_metric > self.best_metric:
@@ -297,8 +299,16 @@ class DiffusionTrainer:
             self.router.eval()
         
         total_loss = 0.0
-        total_samples = 0
+        num_batches = 0
         all_metrics = {}
+        
+        # For task-specific metrics (e.g., classification accuracy), generate text
+        task_config = self.config.get("task", {})
+        task_type = task_config.get("type", None)
+        compute_task_metrics = task_type in ["classification", "qa", "summarization"]
+        
+        all_predictions = []
+        all_references = []
         
         for batch in tqdm(self.eval_dataloader, desc="Evaluating"):
             task_labels = batch.get("task_labels", None)
@@ -314,17 +324,91 @@ class DiffusionTrainer:
                 )
             
             batch_size = batch["target_ids"].size(0)
-            total_loss += loss.item() * batch_size
-            total_samples += batch_size
-            
+            total_loss += loss.item()
+            num_batches += 1
             for key, value in metrics.items():
-                all_metrics[key] = all_metrics.get(key, 0.0) + value * batch_size
+                all_metrics[key] = all_metrics.get(key, 0.0) + value
+            
+            # Generate text for task-specific metrics
+            if compute_task_metrics:
+                target_texts = batch.get("target_texts", [])
+                all_references.extend(target_texts)
+                
+                # Generate predictions
+                instruction_ids = batch["instruction_ids"].to(self.device)
+                instruction_mask = batch["instruction_mask"].to(self.device)
+                
+                # For classification tasks, use fixed short sequence length (3-5 tokens)
+                # For other tasks, use the target sequence length
+                if task_type == "classification":
+                    seq_len = 5  # Fixed short length for classification
+                else:
+                    seq_len = batch["target_ids"].size(1)
+                
+                if self.lora_module:
+                    instruction_emb = self.lora_module.instruction_encoder(
+                        instruction_ids,
+                        attention_mask=instruction_mask,
+                    )
+                    # Project to hidden_dim for base model conditioning
+                    instruction_emb_for_base = self.lora_module.instruction_to_hidden(instruction_emb)
+                else:
+                    instruction_emb_for_base = None
+                
+                # Get tokenizer and label names for classification
+                tokenizer = self.eval_dataloader.dataset.tokenizer
+                label_names = task_config.get("label_names", None)
+                
+                # Use classification-specific sampling if available
+                if task_type == "classification" and hasattr(self.model, 'sample_classification'):
+                    samples = self.model.sample_classification(
+                        batch_size=batch_size,
+                        seq_len=seq_len,
+                        instruction_embedding=instruction_emb_for_base,
+                        device=self.device,
+                        tokenizer=tokenizer,
+                        label_names=label_names,
+                        early_stop=True,
+                    )
+                else:
+                    # Use standard sampling with greedy option for classification
+                    samples = self.model.sample(
+                        batch_size=batch_size,
+                        seq_len=seq_len,
+                        instruction_embedding=instruction_emb_for_base,
+                        device=self.device,
+                        greedy=(task_type == "classification"),  # Use greedy for classification
+                    )
+                
+                # Decode predictions
+                for sample in samples:
+                    pred_text = tokenizer.decode(sample, skip_special_tokens=True).strip()
+                    all_predictions.append(pred_text)
         
-        # Average metrics
+        # Average token-level metrics (per-batch average, same as training log)
+        n = max(num_batches, 1)
         eval_metrics = {
-            key: value / total_samples
+            key: value / n
             for key, value in all_metrics.items()
         }
+        
+        # Compute task-specific metrics if applicable
+        if compute_task_metrics and all_predictions:
+            from src.evaluation.metrics import compute_metrics
+            # Get tokenizer for token-level label decoding
+            tokenizer = self.eval_dataloader.dataset.tokenizer if hasattr(self.eval_dataloader.dataset, 'tokenizer') else None
+            task_metrics = compute_metrics(
+                predictions=all_predictions,
+                references=all_references,
+                task_config=task_config,
+                tokenizer=tokenizer,
+            )
+            # Keep token-level accuracy as primary; store generation-based under separate key
+            eval_metrics["generation_accuracy"] = task_metrics.get("accuracy")
+            for k, v in task_metrics.items():
+                if k != "accuracy":
+                    eval_metrics[k] = v
+            logger.info(f"Task-specific metrics: {task_metrics}")
         
         return eval_metrics
     

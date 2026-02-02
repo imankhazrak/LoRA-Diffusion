@@ -3,6 +3,7 @@
 Implements Weight LoRA, Prefix Tuning, Adapters, and BitFit for comparison.
 """
 
+import math
 from typing import Optional, Dict, Any
 
 import torch
@@ -82,17 +83,18 @@ def apply_weight_lora_to_model(
     Returns:
         Number of LoRA modules added
     """
-    import math
-    
     count = 0
     # Collect modules first to avoid recursion during modification
     modules_to_modify = []
     for name, module in model.named_modules():
         # Check if this is a target module
-        is_target = any(target in name.lower() for target in target_modules)
+        # Match if any target substring appears in the module name
+        is_target = any(target.lower() in name.lower() for target in target_modules)
         
         if is_target and isinstance(module, nn.Linear):
-            modules_to_modify.append((name, module))
+            # Avoid double-counting if a module name matches multiple targets
+            if not any((name, module) == (n, m) for n, m in modules_to_modify):
+                modules_to_modify.append((name, module))
     
     # Now modify modules
     for name, module in modules_to_modify:

@@ -191,6 +191,7 @@ class MaskedDiffusionTransformer(nn.Module):
         timesteps: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
         instruction_embedding: Optional[torch.Tensor] = None,
+        return_hidden: bool = False,
     ) -> torch.Tensor:
         """
         Forward pass: predict x0 distribution from xt.
@@ -200,16 +201,17 @@ class MaskedDiffusionTransformer(nn.Module):
             timesteps: (batch_size,) diffusion timesteps
             attention_mask: (batch_size, seq_len) attention mask
             instruction_embedding: (batch_size, hidden_dim) optional instruction conditioning
+            return_hidden: if True, return (logits, hidden_states); else return logits only
             
         Returns:
-            (batch_size, seq_len, vocab_size) logits for x0 prediction
+            (batch_size, seq_len, vocab_size) logits, or (logits, hidden_states) if return_hidden
         """
         batch_size, seq_len = input_ids.shape
         
         # Get time embeddings
         time_emb = self.get_time_embedding(timesteps)  # (batch_size, hidden_dim)
         
-        # Get transformer hidden states
+        # h_t = Transformer(x_t): token IDs -> hidden representation
         transformer_outputs = self.transformer(
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -228,6 +230,8 @@ class MaskedDiffusionTransformer(nn.Module):
         # Predict x0 logits
         logits = self.output_head(hidden_states)
         
+        if return_hidden:
+            return logits, hidden_states
         return logits
     
     def compute_loss(
@@ -295,6 +299,8 @@ class MaskedDiffusionTransformer(nn.Module):
         seq_len: int,
         instruction_embedding: Optional[torch.Tensor] = None,
         device: str = "cuda",
+        greedy: bool = False,
+        label_tokens: Optional[list] = None,
     ) -> torch.Tensor:
         """
         Sample from the model using reverse diffusion.
@@ -304,6 +310,8 @@ class MaskedDiffusionTransformer(nn.Module):
             seq_len: Sequence length
             instruction_embedding: (batch_size, hidden_dim) optional instruction conditioning
             device: Device to run on
+            greedy: If True, use argmax (greedy) sampling instead of multinomial
+            label_tokens: Optional list of valid label token IDs for constrained generation
             
         Returns:
             (batch_size, seq_len) generated token IDs
@@ -327,11 +335,24 @@ class MaskedDiffusionTransformer(nn.Module):
                 instruction_embedding=instruction_embedding,
             )
             
+            # Apply vocabulary constraint if label_tokens provided
+            if label_tokens is not None:
+                # Mask out invalid tokens by setting their logits to -inf
+                mask = torch.ones_like(logits) * float('-inf')
+                for token_id in label_tokens:
+                    mask[:, :, token_id] = 0.0
+                logits = logits + mask
+            
             # Sample x0
-            x0_pred = torch.multinomial(
-                F.softmax(logits.reshape(-1, self.vocab_size), dim=-1),
-                num_samples=1,
-            ).reshape(batch_size, seq_len)
+            if greedy:
+                # Greedy decoding: use argmax
+                x0_pred = logits.argmax(dim=-1)
+            else:
+                # Stochastic sampling: use multinomial
+                x0_pred = torch.multinomial(
+                    F.softmax(logits.reshape(-1, self.vocab_size), dim=-1),
+                    num_samples=1,
+                ).reshape(batch_size, seq_len)
             
             if t > 0:
                 # Compute q(x_{t-1} | x_t, x0)
@@ -349,6 +370,203 @@ class MaskedDiffusionTransformer(nn.Module):
                 xt = x0_pred
         
         return xt
+    
+    @torch.no_grad()
+    def sample_classification(
+        self,
+        batch_size: int,
+        seq_len: int,
+        instruction_embedding: Optional[torch.Tensor] = None,
+        device: str = "cuda",
+        tokenizer: Optional[Any] = None,
+        label_names: Optional[list] = None,
+        early_stop: bool = True,
+    ) -> torch.Tensor:
+        """
+        Sample from the model optimized for classification tasks.
+        
+        Uses greedy decoding and optionally early stopping when a valid label is detected.
+        
+        Args:
+            batch_size: Number of samples
+            seq_len: Maximum sequence length (typically 3-5 for classification)
+            instruction_embedding: (batch_size, hidden_dim) optional instruction conditioning
+            device: Device to run on
+            tokenizer: Tokenizer for decoding and early stopping check
+            label_names: List of valid label names (e.g., ["negative", "positive"])
+            early_stop: If True, stop generation when valid label is detected
+            
+        Returns:
+            (batch_size, seq_len) generated token IDs
+        """
+        # Start from pure noise (all masked)
+        xt = torch.full(
+            (batch_size, seq_len),
+            self.mask_token_id,
+            dtype=torch.long,
+            device=device,
+        )
+        
+        # Precompute label token IDs if early stopping is enabled
+        label_token_ids = None
+        if early_stop and tokenizer is not None and label_names is not None:
+            label_token_ids = set()
+            for label in label_names:
+                label_tokens = tokenizer.encode(label, add_special_tokens=False)
+                label_token_ids.update(label_tokens)
+        
+        # Reverse diffusion
+        for t in reversed(range(self.num_diffusion_steps)):
+            timesteps = torch.full((batch_size,), t, dtype=torch.long, device=device)
+            
+            # Predict x0
+            logits = self.forward(
+                input_ids=xt,
+                timesteps=timesteps,
+                instruction_embedding=instruction_embedding,
+            )
+            
+            # Greedy decoding: use argmax
+            x0_pred = logits.argmax(dim=-1)
+            
+            # Early stopping check: if we've generated a valid label, we can stop early
+            if early_stop and label_token_ids is not None and t < self.num_diffusion_steps - 1:
+                # Check if any position has a valid label token
+                # For now, we'll continue but this could be optimized further
+                pass
+            
+            if t > 0:
+                # Compute q(x_{t-1} | x_t, x0)
+                # For masked diffusion, gradually unmask tokens
+                alphas_cumprod = self.noise_schedule.alphas_cumprod.to(device)
+                beta_t = 1.0 - alphas_cumprod[t]
+                
+                # Probability of keeping token masked at t-1
+                keep_mask_prob = beta_t * (1.0 - alphas_cumprod[t - 1]) / (1.0 - alphas_cumprod[t])
+                keep_mask = torch.rand(batch_size, seq_len, device=device) < keep_mask_prob
+                
+                # Update xt -> x_{t-1}
+                xt = torch.where(keep_mask, self.mask_token_id, x0_pred)
+            else:
+                xt = x0_pred
+        
+        return xt
+    
+    @torch.no_grad()
+    def sample_with_lora(
+        self,
+        batch_size: int,
+        seq_len: int,
+        instruction_ids: torch.Tensor,
+        instruction_mask: torch.Tensor,
+        lora_module: nn.Module,
+        device: str = "cuda",
+        greedy: bool = False,
+        return_final_hidden: bool = False,
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+        """
+        Sample from the model with single-task LoRA trajectory perturbation.
+        
+        At each diffusion step: h_t = get_representation(x_t), delta = lora_module(...),
+        h_t' = h_t + delta, logits = output_head(h_t').
+        
+        If return_final_hidden=True, also returns the final-step perturbed hidden state
+        (mean-pooled over sequence) for classification-head evaluation: (batch_size, hidden_dim).
+        """
+        xt = torch.full(
+            (batch_size, seq_len),
+            self.mask_token_id,
+            dtype=torch.long,
+            device=device,
+        )
+        instruction_ids = instruction_ids.to(device)
+        instruction_mask = instruction_mask.to(device)
+        final_hidden = None
+        
+        for t in reversed(range(self.num_diffusion_steps)):
+            timesteps = torch.full((batch_size,), t, dtype=torch.long, device=device)
+            hidden_states = self.get_representation(
+                input_ids=xt,
+                timesteps=timesteps,
+                attention_mask=None,
+            )
+            delta = lora_module(
+                hidden_states=hidden_states,
+                timesteps=timesteps,
+                instruction_ids=instruction_ids,
+                instruction_mask=instruction_mask,
+            )
+            perturbed_hidden = hidden_states + delta
+            
+            if return_final_hidden and t == 1:
+                # Final step before x0: use mean-pool over sequence for classification head
+                final_hidden = perturbed_hidden.mean(dim=1)  # (batch_size, hidden_dim)
+            
+            logits = self.output_head(perturbed_hidden)
+            x0_pred = logits.argmax(dim=-1) if greedy else torch.multinomial(
+                F.softmax(logits.reshape(-1, self.vocab_size), dim=-1), num_samples=1
+            ).reshape(batch_size, seq_len)
+            
+            if t > 0:
+                alphas_cumprod = self.noise_schedule.alphas_cumprod.to(device)
+                beta_t = 1.0 - alphas_cumprod[t]
+                keep_mask_prob = beta_t * (1.0 - alphas_cumprod[t - 1]) / (1.0 - alphas_cumprod[t])
+                keep_mask = torch.rand(batch_size, seq_len, device=device) < keep_mask_prob
+                xt = torch.where(keep_mask, self.mask_token_id, x0_pred)
+            else:
+                xt = x0_pred
+        
+        if return_final_hidden:
+            return xt, final_hidden
+        return xt, None
+    
+    @torch.no_grad()
+    def get_final_hidden_for_classification(
+        self,
+        batch_size: int,
+        seq_len: int,
+        instruction_embedding: Optional[torch.Tensor] = None,
+        device: str = "cuda",
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Run reverse diffusion and return (generated token IDs, final-step hidden state).
+        Final hidden is mean-pooled over sequence at the last denoising step (t=1).
+        Used for classification-head evaluation when no LoRA module (e.g. full FT).
+        
+        Returns:
+            xt: (batch_size, seq_len) generated token IDs
+            final_hidden: (batch_size, hidden_dim) mean-pooled hidden at t=1
+        """
+        xt = torch.full(
+            (batch_size, seq_len),
+            self.mask_token_id,
+            dtype=torch.long,
+            device=device,
+        )
+        final_hidden = None
+        
+        for t in reversed(range(self.num_diffusion_steps)):
+            timesteps = torch.full((batch_size,), t, dtype=torch.long, device=device)
+            logits, hidden_states = self.forward(
+                input_ids=xt,
+                timesteps=timesteps,
+                instruction_embedding=instruction_embedding,
+                return_hidden=True,
+            )
+            if t == 1:
+                final_hidden = hidden_states.mean(dim=1)  # (batch_size, hidden_dim)
+            
+            x0_pred = logits.argmax(dim=-1)
+            if t > 0:
+                alphas_cumprod = self.noise_schedule.alphas_cumprod.to(device)
+                beta_t = 1.0 - alphas_cumprod[t]
+                keep_mask_prob = beta_t * (1.0 - alphas_cumprod[t - 1]) / (1.0 - alphas_cumprod[t])
+                keep_mask = torch.rand(batch_size, seq_len, device=device) < keep_mask_prob
+                xt = torch.where(keep_mask, self.mask_token_id, x0_pred)
+            else:
+                xt = x0_pred
+        
+        return xt, final_hidden
     
     @torch.no_grad()
     def sample_with_composition(
