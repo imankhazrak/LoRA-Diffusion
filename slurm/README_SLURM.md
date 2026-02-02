@@ -281,6 +281,23 @@ nvidia-smi
 - GPU partitions: Check with `sinfo` for available GPU partitions
 - Account limits: Check with `sacctmgr show assoc user=$USER`
 
+### If you don't receive job emails from OSC
+
+OSC sends job (BEGIN/END/FAIL) emails from **slurm@osc.edu** or **@osc.edu**. If you don't see them:
+
+1. **Check spam/junk** – Institutional filters (e.g. BGSU) often quarantine them.
+2. **Whitelist** – Ask IT to allow: `slurm@osc.edu`, `no-reply@osc.edu`, `oschelp@osc.edu`.
+3. **Delays** – Many jobs can cause OSC to throttle emails to your address; notifications may arrive late.
+4. **Verify** – In your script you have `#SBATCH --mail-user=your@email` and `#SBATCH --mail-type=BEGIN,END,FAIL` (or `ALL`).
+
+**Check status without email** – Replace `JOBID` with your job number (e.g. from `squeue -u $USER`):
+```bash
+sacct -j JOBID --format=JobID,State,End,ExitCode
+tail -f logs/slurm-JOBID.out
+```
+
+For help: [OSC Help](https://www.osc.edu/support) or oschelp@osc.edu.
+
 ## Support
 
 For OSC-specific issues:
