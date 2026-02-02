@@ -15,6 +15,11 @@ model:
   gradient_checkpointing: false
   compile: false  # PyTorch 2.0 compile (experimental)
 
+# Tokenizer configuration
+tokenizer:
+  name: "bert-base-uncased"  # HuggingFace model name for tokenizer
+  # Alternative: can specify path or other tokenizer names
+
 # Diffusion process
 diffusion:
   num_steps: 100  # T

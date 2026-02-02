@@ -14,11 +14,16 @@ method:
     dropout: 0.1
     
     # Which modules to apply LoRA to
+    # BERT architecture module names:
+    # - Attention: "attention.self.query/key/value" and "attention.output.dense"
+    # - FFN: "intermediate.dense" (up-projection) and "output.dense" (down-projection, also BertLayer output)
     target_modules:
-      - "query"
-      - "key"
-      - "value"
-      - "output"
+      - "query"  # Attention query projection
+      - "key"    # Attention key projection
+      - "value"  # Attention value projection
+      - "attention.output.dense"  # Attention output projection
+      - "intermediate.dense"  # FFN up-projection (hidden_dim -> ffn_dim)
+      - "output.dense"  # FFN down-projection (ffn_dim -> hidden_dim, also BertLayer output)
     
     # Initialization
     init_scale: 0.01
