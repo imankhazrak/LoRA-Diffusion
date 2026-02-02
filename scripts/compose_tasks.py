@@ -105,9 +105,11 @@ def main():
     logger.info(f"Using device: {device}")
     
     # Load tokenizer
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+    tokenizer_name = config.get("tokenizer", {}).get("name", "bert-base-uncased")
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
     if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.pad_token = tokenizer.eos_token if tokenizer.eos_token is not None else tokenizer.unk_token
+    logger.info(f"Loaded tokenizer: {tokenizer_name}")
     
     # Load base model
     logger.info("Loading base diffusion model...")

@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
-"""Generate comprehensive tables for paper from training results."""
+"""Generate comprehensive tables for paper from training results with statistics."""
 
+import argparse
 import json
 import glob
 from pathlib import Path
 import pandas as pd
 from typing import Dict, List, Any, Optional
 import numpy as np
+import sys
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from src.utils.statistical_analysis import format_stats_for_table, get_significance_marker
 
 
 def load_json(filepath: Path) -> Any:
@@ -249,6 +255,38 @@ def main():
     else:
         print("No completed runs found with results.")
     print()
+    return
+    
+    # New path: generate tables from statistics
+    print(f"Generating tables from: {stats_file}\n")
+    
+    tables = generate_tables_from_stats(stats_file)
+    
+    # Write all tables to output file
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(output_path, "w") as f:
+        for table_name, table_latex in tables.items():
+            f.write(f"% {table_name}\n")
+            f.write(table_latex)
+            f.write("\n\n")
+    
+    print(f"Generated {len(tables)} tables:")
+    for table_name in tables.keys():
+        print(f"  - {table_name}")
+    
+    print(f"\nSaved to: {output_path}")
+    
+    # Print preview
+    print("\n" + "=" * 80)
+    print("TABLE PREVIEW")
+    print("=" * 80 + "\n")
+    
+    for table_name, table_latex in tables.items():
+        print(f"--- {table_name} ---")
+        print(table_latex)
+        print()
 
 
 if __name__ == "__main__":

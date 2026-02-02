@@ -33,8 +33,20 @@ def parse_args():
         "--seeds",
         type=int,
         nargs="+",
-        default=[42],
-        help="List of random seeds",
+        default=[42, 43, 44, 45, 46, 47, 48, 49, 50, 51],
+        help="List of random seeds (default: 42-51 for 10 seeds)",
+    )
+    parser.add_argument(
+        "--num_seeds",
+        type=int,
+        default=None,
+        help="Number of seeds to generate (starting from --start_seed)",
+    )
+    parser.add_argument(
+        "--start_seed",
+        type=int,
+        default=42,
+        help="Starting seed when using --num_seeds",
     )
     parser.add_argument(
         "--output_dir",
@@ -47,6 +59,12 @@ def parse_args():
         type=str,
         default="configs/base_config.yaml",
         help="Base config file",
+    )
+    parser.add_argument(
+        "--max_steps",
+        type=int,
+        default=None,
+        help="Maximum training steps (passed to train.py)",
     )
     parser.add_argument(
         "--parallel",
@@ -62,7 +80,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def run_experiment(task, method, seed, output_dir, config, dry_run=False):
+def run_experiment(task, method, seed, output_dir, config, dry_run=False, max_steps=None):
     """Run a single experiment."""
     experiment_name = f"{task}_{method}_seed{seed}"
     exp_output_dir = Path(output_dir) / experiment_name
@@ -76,6 +94,8 @@ def run_experiment(task, method, seed, output_dir, config, dry_run=False):
         "--seed", str(seed),
         "--output_dir", str(exp_output_dir),
     ]
+    if max_steps is not None:
+        cmd.extend(["--max_steps", str(max_steps)])
     
     logger.info(f"Running: {' '.join(cmd)}")
     
@@ -104,6 +124,11 @@ def main():
         datefmt="%Y-%m-%d %H:%M:%S",
     )
     
+    # Generate seeds if --num_seeds is specified
+    if args.num_seeds is not None:
+        args.seeds = list(range(args.start_seed, args.start_seed + args.num_seeds))
+        logger.info(f"Generated {args.num_seeds} seeds: {args.seeds}")
+    
     # Generate all combinations
     experiments = list(itertools.product(args.tasks, args.methods, args.seeds))
     
@@ -119,10 +144,14 @@ def main():
     
     # Run experiments
     failed = []
+    successful = []
     start_time = time.time()
     
     for i, (task, method, seed) in enumerate(experiments, 1):
-        logger.info(f"\n[{i}/{len(experiments)}] Starting {task}_{method}_seed{seed}")
+        exp_start = time.time()
+        msg = f"\n[{i}/{len(experiments)}] Starting {task}_{method}_seed{seed}"
+        logger.info(msg)
+        print(msg, flush=True)
         
         exit_code = run_experiment(
             task=task,
@@ -131,10 +160,25 @@ def main():
             output_dir=args.output_dir,
             config=args.config,
             dry_run=args.dry_run,
+            max_steps=args.max_steps,
         )
         
+        exp_elapsed = time.time() - exp_start
         if exit_code != 0:
             failed.append((task, method, seed))
+        else:
+            successful.append((task, method, seed, exp_elapsed))
+        
+        # ETA estimation
+        if i < len(experiments):
+            avg_time_per_exp = (time.time() - start_time) / i
+            remaining_exps = len(experiments) - i
+            eta_seconds = avg_time_per_exp * remaining_exps
+            eta_hours = eta_seconds / 3600
+            progress_msg = (f"Progress: {i}/{len(experiments)} ({i/len(experiments)*100:.1f}%) | "
+                            f"ETA: {eta_hours:.2f}h | Avg time/exp: {avg_time_per_exp/60:.1f}min")
+            logger.info(progress_msg)
+            print(progress_msg, flush=True)
     
     # Summary
     elapsed_time = time.time() - start_time

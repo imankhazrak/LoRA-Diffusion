@@ -146,11 +146,15 @@ def setup_model(config, method_name):
         logger.info(f"LoRA parameters: {lora_counts}")
         
     elif method_name == "weight_lora":
-        # Apply weight LoRA to model
-        lora_config = config.get("lora", {})
+        # Apply weight LoRA to model (use method-specific config so eval loads same structure)
+        method_lora = config.get("method", {}).get("lora", {})
+        lora_config = {**config.get("lora", {}), **method_lora}
         rank = lora_config.get("rank", 64)
         alpha = lora_config.get("alpha", 16)
-        target_modules = lora_config.get("target_modules", ["query", "key", "value", "output"])
+        target_modules = lora_config.get(
+            "target_modules",
+            ["query", "key", "value", "attention.output.dense", "intermediate.dense", "output.dense"],
+        )
         
         count = apply_weight_lora_to_model(
             base_model,
@@ -161,8 +165,9 @@ def setup_model(config, method_name):
         logger.info(f"Applied weight LoRA to {count} modules")
         
     elif method_name == "adapters":
-        # Add adapter modules
-        adapter_config = config.get("adapter", {})
+        # Add adapter modules (use method-specific config so eval loads same structure)
+        method_adapter = config.get("method", {}).get("adapter", {})
+        adapter_config = {**config.get("adapter", {}), **method_adapter}
         bottleneck_dim = adapter_config.get("bottleneck_dim", 256)
         insert_after = adapter_config.get("insert_after", ["attention", "ffn"])
         
@@ -174,8 +179,9 @@ def setup_model(config, method_name):
         logger.info(f"Added {count} adapter modules")
         
     elif method_name == "bitfit":
-        # Setup BitFit
-        bitfit_config = config.get("bitfit", {})
+        # Setup BitFit (use method-specific config so eval matches)
+        method_bitfit = config.get("method", {}).get("bitfit", {})
+        bitfit_config = {**config.get("bitfit", {}), **method_bitfit}
         train_layer_norm = bitfit_config.get("train_layer_norm", True)
         
         count = setup_bitfit(base_model, train_layer_norm=train_layer_norm)
@@ -230,6 +236,8 @@ def main():
     if args.output_dir:
         overrides["output"] = overrides.get("output", {})
         overrides["output"]["base_dir"] = args.output_dir
+        # Save checkpoints inside this run's output dir so each run has its own final_model/
+        overrides["output"]["checkpoint_dir"] = args.output_dir
     if args.seed:
         overrides["training"] = overrides.get("training", {})
         overrides["training"]["seed"] = args.seed
@@ -274,9 +282,11 @@ def main():
     
     # Initialize tokenizer
     logger.info("Loading tokenizer...")
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+    tokenizer_name = config.get("tokenizer", {}).get("name", "bert-base-uncased")
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
     if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.pad_token = tokenizer.eos_token if tokenizer.eos_token is not None else tokenizer.unk_token
+    logger.info(f"Loaded tokenizer: {tokenizer_name}")
     
     # Load data
     logger.info("Loading datasets...")
