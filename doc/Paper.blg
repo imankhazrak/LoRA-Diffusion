@@ -2,45 +2,77 @@ This is BibTeX, Version 0.99d (TeX Live 2020)
 Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
 The top-level auxiliary file: Paper.aux
 The style file: plainnat.bst
-Database file #1: reference.bib
-You've used 20 entries,
+I found no \bibdata command---while reading file Paper.aux
+Warning--I didn't find a database entry for "brown2020language"
+Warning--I didn't find a database entry for "hu2021lora"
+Warning--I didn't find a database entry for "lou2023discrete"
+Warning--I didn't find a database entry for "sahoo2024masked"
+Warning--I didn't find a database entry for "austin2021structured"
+Warning--I didn't find a database entry for "hoogeboom2021autoregressive"
+Warning--I didn't find a database entry for "li2022diffusion"
+Warning--I didn't find a database entry for "dettmers2023qlora"
+Warning--I didn't find a database entry for "zhang2023adalora"
+Warning--I didn't find a database entry for "li2021prefix"
+Warning--I didn't find a database entry for "lester2021power"
+Warning--I didn't find a database entry for "houlsby2019parameter"
+Warning--I didn't find a database entry for "zaken2021bitfit"
+Warning--I didn't find a database entry for "tlora2024"
+Warning--I didn't find a database entry for "foura2024"
+Warning--I didn't find a database entry for "talora2024"
+Warning--I didn't find a database entry for "msfp2024"
+Warning--I didn't find a database entry for "selora2024"
+Warning--I didn't find a database entry for "gelora2024"
+Warning--I didn't find a database entry for "estlora2024"
+Warning--I didn't find a database entry for "tclora2024"
+Warning--I didn't find a database entry for "efficientdm2023"
+Warning--I didn't find a database entry for "glance2024"
+Warning--I didn't find a database entry for "deltasampling2024"
+Warning--I didn't find a database entry for "ilharco2022editing"
+Warning--I didn't find a database entry for "wang2020orthogonal"
+Warning--I didn't find a database entry for "fedus2022switch"
+Warning--I didn't find a database entry for "aghajanyan2020intrinsic"
+Warning--I didn't find a database entry for "li2018measuring"
+Warning--I didn't find a database entry for "tishby2015deep"
+Warning--I didn't find a database entry for "tishby2000information"
+You've used 0 entries,
             2773 wiz_defined-function locations,
-            691 strings with 8974 characters,
-and the built_in function-call counts, 12726 in all, are:
-= -- 1078
-> -- 968
-< -- 15
-+ -- 323
-- -- 303
-* -- 1067
-:= -- 1901
-add.period$ -- 60
-call.type$ -- 20
-change.case$ -- 160
-chr.to.int$ -- 20
-cite$ -- 40
-duplicate$ -- 542
-empty$ -- 880
-format.name$ -- 327
-if$ -- 2695
+            622 strings with 5279 characters,
+and the built_in function-call counts, 33 in all, are:
+= -- 0
+> -- 0
+< -- 0
++ -- 0
+- -- 0
+* -- 2
+:= -- 10
+add.period$ -- 0
+call.type$ -- 0
+change.case$ -- 0
+chr.to.int$ -- 0
+cite$ -- 0
+duplicate$ -- 0
+empty$ -- 1
+format.name$ -- 0
+if$ -- 1
 int.to.chr$ -- 1
 int.to.str$ -- 1
-missing$ -- 20
-newline$ -- 108
-num.names$ -- 80
-pop$ -- 349
+missing$ -- 0
+newline$ -- 8
+num.names$ -- 0
+pop$ -- 0
 preamble$ -- 1
-purify$ -- 140
+purify$ -- 0
 quote$ -- 0
-skip$ -- 494
+skip$ -- 1
 stack$ -- 0
-substring$ -- 416
-swap$ -- 134
-text.length$ -- 13
+substring$ -- 0
+swap$ -- 0
+text.length$ -- 0
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 220
+type$ -- 0
 warning$ -- 0
-while$ -- 89
+while$ -- 0
 width$ -- 0
-write$ -- 261
+write$ -- 7
+(There was 1 error message)
