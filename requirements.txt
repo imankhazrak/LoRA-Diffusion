@@ -23,6 +23,7 @@ pyyaml>=6.0
 omegaconf>=2.3.0
 tqdm>=4.66.0
 scipy>=1.11.0
+statsmodels>=0.14.0  # For advanced statistical analysis
 
 # Data processing
 pandas>=2.0.0
