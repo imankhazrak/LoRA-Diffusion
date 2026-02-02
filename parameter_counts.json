@@ -1,0 +1,52 @@
+{
+  "full_ft": {
+    "method": "full_ft",
+    "base_params": 137676090,
+    "trainable_params": 137676090,
+    "trainable_percent": 100.0,
+    "storage_mb": 525.1926040649414
+  },
+  "lora_diffusion": {
+    "method": "lora_diffusion",
+    "base_params": 137676090,
+    "trainable_params": 39563472,
+    "trainable_percent": 28.736632482808016,
+    "storage_mb": 150.92266845703125,
+    "breakdown": {
+      "instruction_encoder": 37813504,
+      "instruction_to_hidden": 197376,
+      "adapters_early": 622720,
+      "adapters_mid": 507968,
+      "adapters_late": 421904,
+      "total": 39563472
+    }
+  },
+  "weight_lora": {
+    "method": "weight_lora",
+    "base_params": 147346362,
+    "trainable_params": 9670272,
+    "trainable_percent": 6.562952670660441,
+    "storage_mb": 36.88916015625
+  },
+  "adapters": {
+    "method": "adapters",
+    "base_params": 156599610,
+    "trainable_params": 18923520,
+    "trainable_percent": 12.084014768619156,
+    "storage_mb": 72.1875
+  },
+  "bitfit": {
+    "method": "bitfit",
+    "base_params": 137676090,
+    "trainable_params": 156474,
+    "trainable_percent": 0.11365372157213355,
+    "storage_mb": 0.5969009399414062
+  },
+  "prefix_tuning": {
+    "method": "prefix_tuning",
+    "base_params": 137676090,
+    "trainable_params": 9873920,
+    "trainable_percent": 7.171848067445843,
+    "storage_mb": 37.666015625
+  }
+}
