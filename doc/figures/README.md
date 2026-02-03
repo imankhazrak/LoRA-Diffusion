@@ -8,14 +8,13 @@ This directory contains placeholder references for figures that need to be gener
 
 2. **effective_rank.png/pdf**: Effective rank of LoRA modules across diffusion steps. Early steps exhibit higher effective rank.
 
-3. **data_efficiency.png/pdf**: Performance vs. training data size. LoRA-Diffusion shows better data efficiency than weight LoRA.
+3. **data_efficiency.png/pdf**: Validation accuracy vs. training data size (real SST-2 sweep). **Requires running the data-efficiency sweep first:** `python scripts/run_data_efficiency_sweep.py --output_dir ./outputs/data_efficiency_sweep` (writes `data_efficiency_results.json`). Then `python scripts/generate_figures.py` plots from that file.
 
 4. **trajectory_visualization.png/pdf**: t-SNE visualization of denoising trajectories showing task-specific clusters.
 
 ## Generation
 
-These figures should be generated from experimental outputs using:
-- `notebooks/analyze_results.ipynb`
-- Or similar analysis scripts
+- **Data efficiency (Figure 3):** Run `scripts/run_data_efficiency_sweep.py` to train LoRA-Diffusion and weight LoRA at 10%, 20%, 40%, 60%, 80%, 100% of SST-2 training data and collect validation accuracy; then run `scripts/generate_figures.py`.
+- Other figures: `notebooks/analyze_results.ipynb` or `scripts/generate_figures.py`.
 
 The figures can be in PNG, PDF, or other formats supported by LaTeX's `\includegraphics`.
