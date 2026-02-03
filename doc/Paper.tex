@@ -328,16 +328,16 @@ Table~\ref{tab:main_results} reports performance versus trainable parameters. We
 
 \begin{table}[h]
 \centering
-\caption{Performance on SST-2 with statistical analysis (mean $\pm$ std over 10 seeds, seeds 42--51). Train acc.\ and Val acc.\ = token-level denoising (same metric). Significance vs.\ full fine-tuning: * $p<0.05$, ** $p<0.01$, *** $p<0.001$.}
+\caption{Performance on SST-2 with statistical analysis (mean $\pm$ std over 10 seeds, seeds 42--51). Full FT and LoRA-Diffusion: validation accuracy from job 44064109 (10 seeds). Weight LoRA and Adapters: validation accuracy from rerun job 44055025 (10 seeds). BitFit: validation accuracy from job 44055026 (10 seeds). Train acc.\ and Val acc.\ = token-level denoising (same metric). Significance vs.\ full fine-tuning: * $p<0.05$, ** $p<0.01$, *** $p<0.001$.}
 \label{tab:main_results}
 \begin{tabular}{@{}lcccc@{}}
 \toprule
 Method & Trainable \% & Train acc. (\%) & Val acc. (\%) & Relative \\ \midrule
-Full Fine-Tuning & 100.0 & --- & --- & --- \\
-LoRA-Diffusion & 28.7 & --- & --- & --- \\
-Adapter Layers & 12.1 & $83.21 \pm 1.21$ & $22.79 \pm 0.00$ & 27.5\% \\
-Weight LoRA & 6.6 & $84.02 \pm 1.06$ & $53.66 \pm 0.00$ & 64.6\% \\
-BitFit & 0.1 & --- & --- & --- \\
+Full Fine-Tuning & 100.0 & $84.21 \pm 0.83$ & $83.81 \pm 0.75$ & 100.0\% \\
+LoRA-Diffusion & 28.7 & $88.95 \pm 7.12$ & $86.28 \pm 3.77$ & 103.0\% \\
+Adapter Layers & 12.1 & $83.21 \pm 1.21$ & $83.63 \pm 0.62$ & 99.8\% \\
+Weight LoRA & 6.6 & $84.02 \pm 1.06$ & $83.71 \pm 0.70$ & 99.9\% \\
+BitFit & 0.1 & $83.82 \pm 0.78$ & $83.72 \pm 0.78$ & 99.9\% \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -351,11 +351,11 @@ BitFit & 0.1 & --- & --- & --- \\
 \begin{tabular}{@{}lccc@{}}
 \toprule
 Method & Val acc.\ (\%) & Test acc.\ (\%) & 95\% CI (Val) \\ \midrule
-Full Fine-Tuning & --- & --- & --- \\
-LoRA-Diffusion & --- & --- & --- \\
-Weight LoRA & $53.66 \pm 0.00$ & --- & [53.66, 53.66] \\
-Adapters & $22.79 \pm 0.00$ & --- & [22.79, 22.79] \\
-BitFit & --- & --- & --- \\ \bottomrule
+Full Fine-Tuning & $83.81 \pm 0.75$ & --- & [83.35, 84.28] \\
+LoRA-Diffusion & $86.28 \pm 3.77$ & --- & [83.94, 88.62] \\
+Weight LoRA & $83.71 \pm 0.70$ & --- & [83.27, 84.14] \\
+Adapters & $83.63 \pm 0.62$ & --- & [83.25, 84.01] \\
+BitFit & $83.72 \pm 0.78$ & --- & [83.23, 84.20] \\ \bottomrule
 \end{tabular}
 \end{table}
 
@@ -367,11 +367,11 @@ BitFit & --- & --- & --- \\ \bottomrule
 \begin{tabular}{@{}lcccccc@{}}
 \toprule
 Method & Steps & Train loss & Train acc.\ (\%) & Val acc.\ (\%) & Param.\ \% & Status \\ \midrule
-Full Fine-Tuning & 10000 & 0.2288 & 84.22 & 49.08 & 100.0\% & $\checkmark$ \\
-LoRA-Diffusion & 10000 & 0.1781 & 88.95 & 50.92 & 28.7\% & $\checkmark$ \\
-Weight LoRA & 10000 & 0.2333 & 83.94 & 49.08 & 6.6\% & $\checkmark$ \\
-BitFit & 10000 & 0.2404 & 83.82 & 46.67 & 0.1\% & $\checkmark$ \\
-Adapters & 10000 & 0.4817 & 83.21 & 50.46 & 12.1\% & $\checkmark$ \\
+Full Fine-Tuning & 10000 & 0.2289 & 84.21 & 83.81 & 100.0\% & $\checkmark$ \\
+LoRA-Diffusion & 10000 & 0.1781 & 88.95 & 86.28 & 28.7\% & $\checkmark$ \\
+Weight LoRA & 10000 & 0.3515 & 84.02 & 83.71 & 6.6\% & $\checkmark$ \\
+BitFit & 10000 & 0.2404 & 83.82 & 83.72 & 0.1\% & $\checkmark$ \\
+Adapters & 10000 & 0.4817 & 83.21 & 83.63 & 12.1\% & $\checkmark$ \\
 Prefix Tuning & 50 & --- & --- & --- & 7.2\% & $\times$ \\
 \bottomrule
 \end{tabular}
@@ -383,22 +383,22 @@ Table~\ref{tab:efficiency} summarizes efficiency. All storage values are in \tex
 
 \textbf{Note on LoRA-Diffusion parameters:} The total trainable parameters (39.6M, 28.7\% of base model) include the instruction encoder (37.8M, 27.5\%). The trajectory adapters alone comprise 1.7M parameters (1.2\% of base model). See Table~\ref{tab:param_accounting} for a single, consistent accounting across all methods.
 
-Weight LoRA, adapters, and BitFit use fewer parameters but achieve much lower accuracy on this task.
+Weight LoRA, Adapters, and BitFit achieve validation accuracy competitive with full fine-tuning (83.71\%, 83.63\%, and 83.72\% mean over 10 seeds, from jobs 44055025 and 44055026). Full FT and LoRA-Diffusion (job 44064109) reach 83.81\% and 86.28\% val acc., respectively; BitFit uses the fewest parameters (0.1\%).
 
 \paragraph{Training time and inference latency.}
 Table~\ref{tab:latency} reports wall-clock training time to convergence (or to fixed 5k steps) and inference latency per sample (or per batch, e.g., batch size 8, sequence length 128) for full diffusion ($T$ steps). Placeholder values to be filled from runs; comparison is LoRA-Diffusion vs.\ weight LoRA vs.\ adapters vs.\ base-only under the same hardware and batch size.
 
 \begin{table}[h]
 \centering
-\caption{Training time and inference latency (placeholder). Same hardware and batch size; inference at batch 8, seq length 128, $T$ steps.}
+\caption{Training time and inference latency (mean over 10 seeds). Same hardware and batch size; inference at batch 8, seq length 128, $T$ steps. Training time computed from mean time/step $\times$ 10k steps; latency from generation eval logs (ms/sample).}
 \label{tab:latency}
 \begin{tabular}{@{}lcc@{}}
 \toprule
 Method & Training time (to convergence) & Inference latency (ms/sample) \\ \midrule
-Full Fine-Tuning & (to be filled) & (to be filled) \\
-LoRA-Diffusion & (to be filled) & (to be filled) \\
-Weight LoRA & (to be filled) & (to be filled) \\
-Adapters & (to be filled) & (to be filled) \\ \bottomrule
+Full Fine-Tuning & 18.3 min & 25.2 \\
+LoRA-Diffusion & 26.3 min & 26.9 \\
+Weight LoRA & 20.7 min & 49.5 \\
+Adapters & 18.6 min & 46.3 \\ \bottomrule
 \end{tabular}
 \end{table}
 
@@ -409,11 +409,11 @@ Adapters & (to be filled) & (to be filled) \\ \bottomrule
 \begin{tabular}{@{}lcccccc@{}}
 \toprule
 Method & Trainable params & Param.\ \% & Steps & Train acc.\ (\%) & Val acc.\ (\%) & Storage (MB) \\ \midrule
-Full Fine-Tuning & 137.7M & 100.0\% & 50 & --- & --- & 525.2\,MB \\
-LoRA-Diffusion & 39.6M & 28.7\% & 50 & --- & --- & 150.9\,MB \\
-Weight LoRA & 9.7M & 6.6\% & 10000 & 84.02 & 53.66 & 36.9\,MB \\
-Adapters & 18.9M & 12.1\% & 10000 & 83.21 & 22.79 & 72.2\,MB \\
-BitFit & 0.2M & 0.1\% & 50 & --- & --- & 0.6\,MB \\
+Full Fine-Tuning & 137.7M & 100.0\% & 10000 & 84.21 & 83.81 & 525.2\,MB \\
+LoRA-Diffusion & 39.6M & 28.7\% & 10000 & 88.95 & 86.28 & 150.9\,MB \\
+Weight LoRA & 9.7M & 6.6\% & 10000 & 84.02 & 83.71 & 36.9\,MB \\
+Adapters & 18.9M & 12.1\% & 10000 & 83.21 & 83.63 & 72.2\,MB \\
+BitFit & 0.2M & 0.1\% & 10000 & 83.82 & 83.72 & 0.6\,MB \\
 Prefix Tuning & 9.9M & 7.2\% & 50 & --- & N/A & 37.7\,MB \\
 \bottomrule
 \end{tabular}
@@ -439,7 +439,7 @@ QNLI & (to be filled) & (to be filled) & (to be filled) & (to be filled) \\ \bot
 
 \subsection{Catastrophic Forgetting and Convergence}
 
-Table~\ref{tab:forgetting} reports loss and convergence. LoRA-Diffusion achieves 92.3\% loss reduction from initial to final loss, with the lowest final loss (0.178) among methods. Full fine-tuning, weight LoRA, and BitFit show 89--90\% loss reduction; adapters show 79.1\%. The frozen base in LoRA-Diffusion helps keep pretrained knowledge intact and limits catastrophic forgetting.
+Table~\ref{tab:forgetting} reports loss and convergence. LoRA-Diffusion achieves 98.2\% loss reduction from initial to final loss, with the lowest final loss (0.178) among methods. Full fine-tuning shows 90.1\% loss reduction; weight LoRA and BitFit are near 90\%; adapters show 79.1\%. The frozen base in LoRA-Diffusion helps keep pretrained knowledge intact and limits catastrophic forgetting.
 
 \begin{table}[h]
 \centering
@@ -448,8 +448,8 @@ Table~\ref{tab:forgetting} reports loss and convergence. LoRA-Diffusion achieves
 \begin{tabular}{@{}lcccc@{}}
 \toprule
 Method & Initial loss & Final loss & Loss reduction & Convergence \\ \midrule
-Full Fine-Tuning & $\sim$2.3 & --- & --- & 10000k steps \\
-LoRA-Diffusion & $\sim$2.3 & --- & --- & 10000k steps \\
+Full Fine-Tuning & 2.31 & 0.2289 & 90.1\% & 10000 steps \\
+LoRA-Diffusion & 9.79 & 0.1781 & 98.2\% & 10000 steps \\
 Weight LoRA & $\sim$9.6 & 0.3515 & 96.3\% & 10000k steps \\
 Adapters & $\sim$10.3 & 0.4817 & 95.3\% & 10000k steps \\
 BitFit & $\sim$2.3 & --- & --- & 10000k steps \\
@@ -465,11 +465,11 @@ BitFit & $\sim$2.3 & --- & --- & 10000k steps \\
 \begin{tabular}{@{}lcccccc@{}}
 \toprule
 Method & Mean (\%) & Std & Variance & 95\% CI & p-value vs.\ full FT & Cohen's d \\ \midrule
-Full Fine-Tuning & --- & 0.00 & 0.000 & --- & --- & --- \\
-LoRA-Diffusion & --- & 0.00 & 0.000 & --- & --- & --- \\
-Weight LoRA & 53.66 & 0.00 & 0.000 & [53.66, 53.66] & --- & --- \\
-Adapters & 22.79 & 0.00 & 0.000 & [22.79, 22.79] & --- & --- \\
-BitFit & --- & 0.00 & 0.000 & --- & --- & --- \\
+Full Fine-Tuning & 83.81 & 0.71 & 0.51 & [83.30, 84.32] & --- & --- \\
+LoRA-Diffusion & 86.28 & 3.58 & 12.80 & [83.72, 88.84] & 0.0487 & 0.72 \\
+Weight LoRA & 83.71 & 0.66 & 0.44 & [83.23, 84.18] & 0.5321 & -0.21 \\
+Adapters & 83.63 & 0.58 & 0.34 & [83.21, 84.05] & 0.5039 & -0.22 \\
+BitFit & 83.72 & 0.74 & 0.55 & [83.19, 84.25] & 0.5016 & -0.22 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -497,32 +497,14 @@ Table~\ref{tab:composition} summarizes the comparison. We report standard (class
 \begin{tabular}{@{}lcccccc@{}}
 \toprule
 Method & Train acc. (\%) & Val acc. (\%) & Train loss & Steps & Param.\ \% & Status \\ \midrule
-Full Fine-Tuning & --- & --- & --- & 50 & 100.0\% & $\times$ \\
-LoRA-Diffusion & --- & --- & --- & 50 & 28.7\% & $\times$ \\
-Weight LoRA & 84.02 & 53.66 & 0.3515 & 10000 & 6.6\% & $\checkmark$ \\
-BitFit & --- & --- & --- & 50 & 0.1\% & $\times$ \\
-Adapters & 83.21 & 22.79 & 0.4817 & 10000 & 12.1\% & $\checkmark$ \\
+Full Fine-Tuning & 84.21 & 83.81 & 0.2289 & 10000 & 100.0\% & $\checkmark$ \\
+LoRA-Diffusion & 88.95 & 86.28 & 0.1781 & 10000 & 28.7\% & $\checkmark$ \\
+Weight LoRA & 84.02 & 83.71 & 0.3515 & 10000 & 6.6\% & $\checkmark$ \\
+BitFit & 83.82 & 83.72 & 0.2404 & 10000 & 0.1\% & $\checkmark$ \\
+Adapters & 83.21 & 83.63 & 0.4817 & 10000 & 12.1\% & $\checkmark$ \\
 Prefix Tuning & --- & --- & --- & 50 & 7.2\% & $\times$ \\
 \midrule
-LoRA-Diffusion vs.\ full FT & --- & --- & --- & 1.0$\times$ & 28.7\% & --- \\
-
-\midrule
-LoRA-Diffusion vs.\ full FT & --- & 96.6\% & 0.78$\times$ & 1.0$\times$ & 28.7\% & --- \\
-
-\midrule
-LoRA-Diffusion vs.\ full FT & --- & 103.7\% & 0.78$\times$ & 1.0$\times$ & 28.7\% & --- \\
-
-\midrule
-LoRA-Diffusion vs.\ full FT & --- & 103.7\% & 0.78$\times$ & 1.0$\times$ & 28.7\% & --- \\
-
-\midrule
-LoRA-Diffusion vs.\ full FT & --- & 103.7\% & 0.78$\times$ & 1.0$\times$ & 28.7\% & --- \\
-
-\midrule
-LoRA-Diffusion vs.\ full FT & --- & 103.7\% & 0.78$\times$ & 1.0$\times$ & 28.7\% & --- \\
-
-\midrule
-LoRA-Diffusion vs.\ full FT & --- & 100.6\% & 0.78$\times$ & 1.0$\times$ & 28.7\% & --- \\
+LoRA-Diffusion vs.\ full FT & 105.6\% & 103.0\% & 0.78$\times$ & 1.0$\times$ & 28.7\% & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -636,7 +618,7 @@ Figure~\ref{fig:rank_ablation} plots performance and trainable parameters versus
 \begin{figure}[h]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/data_efficiency}
-\caption{Performance vs.\ training data size. LoRA-Diffusion shows better data efficiency than weight LoRA, especially in low-data regimes.}
+\caption{Performance vs.\ training data size (SST-2 validation accuracy). Generated from real sweep results via \texttt{scripts/run\_data\_efficiency\_sweep.py}; LoRA-Diffusion and weight LoRA are trained at 10\%, 20\%, 40\%, 60\%, 80\%, and 100\% of the training set.}
 \label{fig:data_efficiency}
 \end{figure}
 
@@ -716,6 +698,104 @@ Hu, E.~J., Shen, Y., Wallis, P., Allen-Zhu, Z., Li, Y., Wang, S., Wang, L., and 
 Ilharco, G., Ribeiro, M.~T., Wortsman, M., Gururangan, S., Schmidt, L., Hajishirzi, H., and Farhadi, A. (2022).
 \newblock Editing models with task arithmetic.
 \newblock \textit{arXiv preprint arXiv:2212.04089}.
+
+\appendix
+\section{Timing Derivations and Per-seed Breakdown}
+\label{sec:appendix_timing}
+
+\paragraph{Derivation notes.}
+Training time is computed from the per-step timing recorded during training. For each run, we take the mean of \texttt{time\_per\_step} from \texttt{training\_history.json} and multiply by \texttt{total\_steps} (10k) from \texttt{training\_summary.json}. Reported values in Table~\ref{tab:latency} are the mean across 10 seeds. Inference latency is computed from generation evaluation logs: we measure wall-clock time between the log lines ``Generating predictions'' and ``Results'' in \texttt{eval\_gen.log}, then divide by the number of validation examples (872) to obtain ms/sample. All timing values use batch size 8, sequence length 128, and $T$ diffusion steps, matching the main experiments.
+
+\subsection{Per-seed timing breakdown}
+\label{sec:appendix_timing_per_seed}
+
+\begin{table}[h]
+\centering
+\caption{Per-seed timing breakdown for Full FT (training time in minutes, inference latency in ms/sample).}
+\label{tab:timing_per_seed_full_ft}
+\scriptsize
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Seed & Training time (min) & Inference latency (ms) \\ \midrule
+42 & 19.0 & 25.2 \\
+43 & 18.3 & 25.2 \\
+44 & 17.9 & 26.4 \\
+45 & 18.7 & 24.1 \\
+46 & 18.2 & 25.2 \\
+47 & 18.4 & 25.2 \\
+48 & 18.2 & 24.1 \\
+49 & 18.3 & 26.4 \\
+50 & 18.1 & 25.2 \\
+51 & 18.0 & 25.2 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Per-seed timing breakdown for LoRA-Diffusion (training time in minutes, inference latency in ms/sample).}
+\label{tab:timing_per_seed_lora_diffusion}
+\scriptsize
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Seed & Training time (min) & Inference latency (ms) \\ \midrule
+42 & 26.5 & 25.2 \\
+43 & 26.1 & 31.0 \\
+44 & 26.4 & 26.4 \\
+45 & 26.1 & 31.0 \\
+46 & 26.2 & 29.8 \\
+47 & 26.4 & 24.1 \\
+48 & 26.4 & 25.2 \\
+49 & 26.2 & 26.4 \\
+50 & 26.1 & 25.2 \\
+51 & 26.3 & 25.2 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Per-seed timing breakdown for Weight LoRA (training time in minutes, inference latency in ms/sample).}
+\label{tab:timing_per_seed_weight_lora}
+\scriptsize
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Seed & Training time (min) & Inference latency (ms) \\ \midrule
+42 & 20.9 & 49.3 \\
+43 & 20.9 & 48.2 \\
+44 & 20.9 & 50.5 \\
+45 & 20.9 & 50.5 \\
+46 & 20.9 & 50.5 \\
+47 & 20.9 & 49.3 \\
+48 & 20.9 & 49.3 \\
+49 & 20.0 & 49.3 \\
+50 & 20.0 & 49.3 \\
+51 & 20.1 & 49.3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Per-seed timing breakdown for Adapters (training time in minutes, inference latency in ms/sample).}
+\label{tab:timing_per_seed_adapters}
+\scriptsize
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Seed & Training time (min) & Inference latency (ms) \\ \midrule
+42 & 18.6 & 44.7 \\
+43 & 18.6 & 44.7 \\
+44 & 18.7 & 44.7 \\
+45 & 18.6 & 44.7 \\
+46 & 18.6 & 44.7 \\
+47 & 18.7 & 42.4 \\
+48 & 18.6 & 43.6 \\
+49 & 18.7 & 55.0 \\
+50 & 18.7 & 55.0 \\
+51 & 18.7 & 43.6 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \bibitem[Lester et al.(2021)]{lester2021power}
 Lester, B., Al-Rfou, R., and Constant, N. (2021).
