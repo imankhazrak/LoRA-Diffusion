@@ -4,13 +4,13 @@ MULTI-SEED STATISTICAL ANALYSIS SUMMARY
 
 VALIDATION ACCURACY:
 --------------------------------------------------------------------------------
-weight_lora         :  53.66 ±  0.00%  95% CI: [ 53.66,  53.66]  n=10
-adapters            :  22.79 ±  0.00%  95% CI: [ 22.79,  22.79]  n=10
+full_ft             :  83.81 ±  0.75%  95% CI: [ 83.35,  84.28]  n=10
+lora_diffusion      :  86.28 ±  3.77%  95% CI: [ 83.94,  88.62]  n=10
 
 STATISTICAL ASSUMPTIONS:
 --------------------------------------------------------------------------------
-weight_lora         : Normal=Yes (Shapiro-Wilk p=1.0000)
-adapters            : Normal=Yes (Shapiro-Wilk p=1.0000)
-Homogeneity of variance: No (Levene p=nan)
+full_ft             : Normal=Yes (Shapiro-Wilk p=0.8335)
+lora_diffusion      : Normal=Yes (Shapiro-Wilk p=0.1645)
+Homogeneity of variance: No (Levene p=0.0008)
 
 ================================================================================
