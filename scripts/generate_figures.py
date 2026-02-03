@@ -164,51 +164,91 @@ def generate_effective_rank():
 
 
 def generate_data_efficiency():
-    """Generate data efficiency plot: performance vs training data size."""
-    # Simulated data showing LoRA-Diffusion has better data efficiency
-    # In practice, this would come from experiments with different data sizes
-    data_sizes = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])  # Fraction of full dataset
-    
-    # LoRA-Diffusion: better data efficiency (higher performance with less data)
-    lora_diffusion_scores = 45 + 35 * (1 - np.exp(-3 * data_sizes)) + np.random.normal(0, 0.5, len(data_sizes))
-    lora_diffusion_scores = np.clip(lora_diffusion_scores, 45, 80)
-    
-    # Weight LoRA: lower data efficiency
-    weight_lora_scores = 40 + 30 * (1 - np.exp(-2.5 * data_sizes)) + np.random.normal(0, 0.5, len(data_sizes))
-    weight_lora_scores = np.clip(weight_lora_scores, 40, 70)
-    
+    """Generate data efficiency plot from real SST-2 sweep results.
+
+    Loads data_efficiency_results.json produced by scripts/run_data_efficiency_sweep.py.
+    If the file is missing, skips the figure and prints instructions.
+    """
+    import os
+    project_root = Path(__file__).parent.parent
+    results_path = Path(os.environ.get("DATA_EFFICIENCY_RESULTS", "")) or (
+        project_root / "data_efficiency_results.json"
+    )
+    if not results_path.is_absolute():
+        results_path = project_root / results_path
+
+    if not results_path.exists():
+        print(
+            f"⊘ Skipping data_efficiency figure: {results_path} not found. "
+            "Run the data-efficiency sweep first:\n"
+            "  python scripts/run_data_efficiency_sweep.py --output_dir ./outputs/data_efficiency_sweep\n"
+            "Then re-run: python scripts/generate_figures.py"
+        )
+        return
+
+    with open(results_path) as f:
+        data = json.load(f)
+
+    fractions = data.get("fractions", [0.1, 0.2, 0.4, 0.6, 0.8, 1.0])
+    x_pct = np.array(fractions) * 100
+
+    ld = data.get("lora_diffusion", {})
+    wl = data.get("weight_lora", {})
+
+    def get_series(method_dict):
+        means, stds = [], []
+        for frac in fractions:
+            key = f"{frac:.2f}" if frac < 1.0 else "1.00"
+            entry = method_dict.get(key, {})
+            m = entry.get("mean")
+            s = entry.get("std") or 0.0
+            means.append(m if m is not None else np.nan)
+            stds.append(s)
+        return np.array(means), np.array(stds)
+
+    ld_mean, ld_std = get_series(ld)
+    wl_mean, wl_std = get_series(wl)
+
+    valid = np.isfinite(ld_mean) | np.isfinite(wl_mean)
+    if not np.any(valid):
+        print(f"⊘ Skipping data_efficiency figure: no valid values in {results_path}")
+        return
+
     fig, ax = plt.subplots(figsize=(8, 6))
-    
-    ax.plot(data_sizes * 100, lora_diffusion_scores, linewidth=2.5, marker='o', 
-            markersize=8, label='LoRA-Diffusion', color='#2ca02c', zorder=3)
-    ax.plot(data_sizes * 100, weight_lora_scores, linewidth=2.5, marker='s', 
-            markersize=8, label='Weight LoRA', color='#d62728', zorder=3)
-    
-    ax.fill_between(data_sizes * 100, lora_diffusion_scores - 1, lora_diffusion_scores + 1, 
-                    alpha=0.2, color='#2ca02c')
-    ax.fill_between(data_sizes * 100, weight_lora_scores - 1, weight_lora_scores + 1, 
-                    alpha=0.2, color='#d62728')
-    
+
+    ax.plot(x_pct, ld_mean, linewidth=2.5, marker='o', markersize=8,
+            label='LoRA-Diffusion', color='#2ca02c', zorder=3)
+    ax.plot(x_pct, wl_mean, linewidth=2.5, marker='s', markersize=8,
+            label='Weight LoRA', color='#d62728', zorder=3)
+
+    ax.fill_between(x_pct, ld_mean - ld_std, ld_mean + ld_std, alpha=0.2, color='#2ca02c')
+    ax.fill_between(x_pct, wl_mean - wl_std, wl_mean + wl_std, alpha=0.2, color='#d62728')
+
     ax.set_xlabel('Training Data Size (% of Full Dataset)', fontweight='bold')
-    ax.set_ylabel('Performance Score', fontweight='bold')
+    ax.set_ylabel('Validation Accuracy (%)', fontweight='bold')
     ax.set_title('Data Efficiency: Performance vs. Training Data Size', fontweight='bold', pad=10)
     ax.set_xlim([0, 105])
-    ax.set_ylim([38, 82])
+    y_min = np.nanmin(np.concatenate([ld_mean - ld_std, wl_mean - wl_std]))
+    y_max = np.nanmax(np.concatenate([ld_mean + ld_std, wl_mean + wl_std]))
+    if np.isnan(y_min):
+        y_min, y_max = 40, 85
+    ax.set_ylim([max(0, y_min - 5), min(100, y_max + 5)])
     ax.grid(True, alpha=0.3)
     ax.legend(loc='lower right', framealpha=0.9, fontsize=11)
-    
-    # Add annotation for low-data regime
-    ax.annotate('Better in\nlow-data regime', xy=(20, 55), xytext=(15, 65),
-                arrowprops=dict(arrowstyle='->', color='green', lw=2),
-                fontsize=10, color='green', fontweight='bold',
-                bbox=dict(boxstyle='round,pad=0.5', facecolor='white', alpha=0.8))
-    
+
+    # Annotate low-data regime if we have a gap
+    if len(x_pct) >= 2 and np.any(np.isfinite(ld_mean[:2])) and np.any(np.isfinite(wl_mean[:2])):
+        idx = min(1, len(x_pct) - 1)
+        ax.annotate('Better in\nlow-data regime', xy=(x_pct[idx], (ld_mean[idx] + wl_mean[idx]) / 2),
+                    xytext=(x_pct[0] - 5, ld_mean[0] + 10 if np.isfinite(ld_mean[0]) else 60),
+                    arrowprops=dict(arrowstyle='->', color='green', lw=2),
+                    fontsize=10, color='green', fontweight='bold',
+                    bbox=dict(boxstyle='round,pad=0.5', facecolor='white', alpha=0.8))
+
     plt.tight_layout()
-    
-    # Save both PNG and PDF
     fig.savefig(FIGURES_DIR / 'data_efficiency.png', dpi=300, bbox_inches='tight')
     fig.savefig(FIGURES_DIR / 'data_efficiency.pdf', bbox_inches='tight')
-    print(f"✓ Generated data_efficiency.png and data_efficiency.pdf")
+    print(f"✓ Generated data_efficiency.png and data_efficiency.pdf from {results_path}")
     plt.close()
 
 

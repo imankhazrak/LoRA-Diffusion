@@ -67,6 +67,12 @@ def parse_args():
         help="Maximum training steps (passed to train.py)",
     )
     parser.add_argument(
+        "--subset_size",
+        type=int,
+        default=None,
+        help="Max training samples (data subset, passed to train.py)",
+    )
+    parser.add_argument(
         "--parallel",
         action="store_true",
         help="Run experiments in parallel (use with caution)",
@@ -80,7 +86,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def run_experiment(task, method, seed, output_dir, config, dry_run=False, max_steps=None):
+def run_experiment(task, method, seed, output_dir, config, dry_run=False, max_steps=None, subset_size=None):
     """Run a single experiment."""
     experiment_name = f"{task}_{method}_seed{seed}"
     exp_output_dir = Path(output_dir) / experiment_name
@@ -96,6 +102,8 @@ def run_experiment(task, method, seed, output_dir, config, dry_run=False, max_st
     ]
     if max_steps is not None:
         cmd.extend(["--max_steps", str(max_steps)])
+    if subset_size is not None:
+        cmd.extend(["--subset_size", str(subset_size)])
     
     logger.info(f"Running: {' '.join(cmd)}")
     
@@ -161,6 +169,7 @@ def main():
             config=args.config,
             dry_run=args.dry_run,
             max_steps=args.max_steps,
+            subset_size=args.subset_size,
         )
         
         exp_elapsed = time.time() - exp_start

@@ -241,6 +241,24 @@ def find_checkpoint_subdir(checkpoint_path: Path, config: Optional[Dict[str, Any
         logger.info(f"Found checkpoint in {checkpoint_path}")
         return checkpoint_path
     
+    # Do NOT fall back to checkpoints/ for multi-seed experiment dirs: that would load
+    # a single shared checkpoint for all seeds and produce identical (wrong) val accuracy.
+    # BitFit works because its experiment dirs had final_model/ when eval ran (from rerun);
+    # full_ft/lora_diffusion had no final_model in experiment dirs, so fallback returned the
+    # same checkpoint for every seed. Fail loudly instead.
+    try:
+        path_str = checkpoint_path.resolve().as_posix()
+        if "multi_seed_experiments" in path_str and "_seed" in checkpoint_path.name:
+            logger.warning(
+                "Checkpoint not found in %s (no final_model/ or model.pt). "
+                "Skipping checkpoints/ fallback for multi-seed experiment dirs to avoid "
+                "loading the same checkpoint for all seeds (wrong val accuracy).",
+                checkpoint_path,
+            )
+            return None
+    except (OSError, RuntimeError):
+        pass
+    
     # Try looking in checkpoints/ directory (from config or default location)
     project_root = Path(__file__).parent.parent
     if config and "output" in config and "checkpoint_dir" in config["output"]:
@@ -551,16 +569,49 @@ def main():
         logger.error("Tried: config.json, training_summary.json, final_model/config.json, best_model/config.json, checkpoint-*/config.json")
         return
     
+    # Expected training length (from experiment dir config) for step-mismatch warning
+    requested_path = checkpoint_path
+    expected_max_steps = config.get("training", {}).get("max_steps")
+
     # Find the actual checkpoint subdirectory containing model files
     actual_checkpoint_dir = find_checkpoint_subdir(checkpoint_path, config=config)
     if actual_checkpoint_dir is None:
+        try:
+            path_str = requested_path.resolve().as_posix()
+            if "multi_seed_experiments" in path_str and "_seed" in requested_path.name:
+                logger.error(
+                    "No checkpoint in %s (missing final_model/model.pt or model.pt). "
+                    "Re-run training for this seed so the experiment dir contains the checkpoint, "
+                    "or evaluate will use a different seed's checkpoint and report wrong val accuracy.",
+                    requested_path,
+                )
+                return
+        except (OSError, RuntimeError):
+            pass
         logger.warning(f"Could not find model.pt or lora_module.pt in {checkpoint_path} or subdirectories")
         logger.warning("Will try to load from checkpoint_path directly")
         actual_checkpoint_dir = checkpoint_path
     else:
         # Update checkpoint_path to point to the actual checkpoint directory
         checkpoint_path = actual_checkpoint_dir
-    
+
+    # Warn if we resolved to a different dir and the checkpoint step doesn't match expected (e.g. loading 50-step instead of 10k)
+    if actual_checkpoint_dir != requested_path and expected_max_steps is not None:
+        meta_path = checkpoint_path / "checkpoint_metadata.json"
+        if meta_path.exists():
+            try:
+                with open(meta_path) as f:
+                    meta = json.load(f)
+                ckpt_step = meta.get("step", 0)
+                if ckpt_step < expected_max_steps * 0.5:
+                    logger.warning(
+                        "Checkpoint step mismatch: loaded from %s (step=%s) but experiment expects max_steps=%s. "
+                        "Validation accuracy may be wrong (e.g. ~50%% if loading a short run).",
+                        checkpoint_path, ckpt_step, expected_max_steps,
+                    )
+            except (json.JSONDecodeError, TypeError):
+                pass
+
     # Use the checkpoint directory's config for seed and method so model init matches loaded weights
     # (e.g. LoRA-Diffusion: base must be initialized with same seed as the checkpoint's training)
     config_ckpt_path = checkpoint_path / "config.json"
