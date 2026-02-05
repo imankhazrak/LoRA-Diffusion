@@ -1,0 +1,30 @@
+# MRPC (Paraphrase Classification) Task Configuration
+
+task:
+  name: "mrpc"
+  type: "classification"
+  dataset: "SetFit/mrpc"
+  dataset_config: null
+
+  split_names:
+    train: "train"
+    validation: "validation"
+    test: "validation"
+
+  # Input: sentence1, sentence2; output: label
+  input_columns: ["sentence1", "sentence2"]
+  label_column: "label"
+  num_labels: 2
+  label_names: ["not_equivalent", "equivalent"]
+
+  max_seq_length: 128
+
+  max_steps: 5000
+  eval_frequency: 250
+
+  instruction_template: "Determine if the following two sentences are paraphrases (equivalent in meaning). Sentence 1: {sentence1} Sentence 2: {sentence2} Answer (equivalent or not_equivalent):"
+
+# Metrics
+metrics:
+  primary: "accuracy"
+  secondary: ["f1"]

@@ -1,0 +1,30 @@
+# QNLI (Question-Answer NLI) Task Configuration
+
+task:
+  name: "qnli"
+  type: "classification"
+  dataset: "SetFit/qnli"
+  dataset_config: null
+
+  split_names:
+    train: "train"
+    validation: "validation"
+    test: "validation"
+
+  # Input: question, sentence; output: label
+  input_columns: ["question", "sentence"]
+  label_column: "label"
+  num_labels: 2
+  label_names: ["entailment", "not_entailment"]
+
+  max_seq_length: 128
+
+  max_steps: 5000
+  eval_frequency: 250
+
+  instruction_template: "Does the sentence answer the question? Answer with entailment or not_entailment.\nQuestion: {question}\nSentence: {sentence}\nAnswer:"
+
+# Metrics
+metrics:
+  primary: "accuracy"
+  secondary: ["f1"]
