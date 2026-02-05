@@ -325,32 +325,43 @@ def generate_summary_report(stats_output: Dict[str, Any]) -> str:
     report.append("")
     
     methods = stats_output.get('methods', {})
-    
+    if not methods:
+        report.append("No method results to summarize.")
+        return "\n".join(report)
+
     # Validation accuracy summary
     if 'val_accuracy' in next(iter(methods.values()), {}):
         report.append("VALIDATION ACCURACY:")
         report.append("-" * 80)
         
         for method_key, method_stats in methods.items():
-            if 'val_accuracy' in method_stats:
-                stats = method_stats['val_accuracy']
-                mean = stats['mean'] * 100 if stats['mean'] < 2 else stats['mean']
-                std = stats['std'] * 100 if stats['std'] < 2 else stats['std']
-                ci_l = stats['ci_95_lower'] * 100 if stats['ci_95_lower'] < 2 else stats['ci_95_lower']
-                ci_u = stats['ci_95_upper'] * 100 if stats['ci_95_upper'] < 2 else stats['ci_95_upper']
-                
-                report.append(f"{method_key:20s}: {mean:6.2f} ± {std:5.2f}%  "
-                            f"95% CI: [{ci_l:6.2f}, {ci_u:6.2f}]  "
-                            f"n={stats['n']}")
-                
-                # Add significance if available
-                if stats.get('t_test'):
-                    p_val = stats['t_test']['p_value']
+            if 'val_accuracy' not in method_stats:
+                continue
+            stats = method_stats['val_accuracy']
+            mean = stats.get('mean')
+            if mean is None:
+                continue
+            mean = mean * 100 if mean < 2 else mean
+            std = stats.get('std') or 0
+            std = std * 100 if std < 2 else std
+            ci_l = stats.get('ci_95_lower')
+            ci_u = stats.get('ci_95_upper')
+            if ci_l is not None:
+                ci_l = ci_l * 100 if ci_l < 2 else ci_l
+            if ci_u is not None:
+                ci_u = ci_u * 100 if ci_u < 2 else ci_u
+            n = stats.get('n', 0)
+            report.append(f"{method_key:20s}: {mean:6.2f} ± {std:5.2f}%  "
+                        f"95% CI: [{ci_l or 0:6.2f}, {ci_u or 0:6.2f}]  "
+                        f"n={n}")
+            # Add significance if available
+            if stats.get('t_test'):
+                p_val = stats['t_test'].get('p_value')
+                if p_val is not None:
                     cohens_d = stats.get('cohens_d', np.nan)
                     sig_marker = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "ns"
                     report.append(f"{'':20s}  vs baseline: p={p_val:.4f} ({sig_marker}), "
                                 f"Cohen's d={cohens_d:.3f}")
-        
         report.append("")
     
     # Assumptions check

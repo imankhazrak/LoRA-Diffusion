@@ -171,9 +171,8 @@ def generate_data_efficiency():
     """
     import os
     project_root = Path(__file__).parent.parent
-    results_path = Path(os.environ.get("DATA_EFFICIENCY_RESULTS", "")) or (
-        project_root / "data_efficiency_results.json"
-    )
+    env_path = os.environ.get("DATA_EFFICIENCY_RESULTS")
+    results_path = Path(env_path) if env_path else (project_root / "data_efficiency_results.json")
     if not results_path.is_absolute():
         results_path = project_root / results_path
 
@@ -195,17 +194,24 @@ def generate_data_efficiency():
     ld = data.get("lora_diffusion", {})
     wl = data.get("weight_lora", {})
 
-    def get_series(method_dict):
+    # Support both formats: new = per-metric dicts; old = top-level mean/std
+    def get_series(method_dict, metric_key=None):
         means, stds = [], []
         for frac in fractions:
             key = f"{frac:.2f}" if frac < 1.0 else "1.00"
             entry = method_dict.get(key, {})
-            m = entry.get("mean")
-            s = entry.get("std") or 0.0
+            if metric_key and isinstance(entry.get(metric_key), dict):
+                m = entry[metric_key].get("mean")
+                s = entry[metric_key].get("std") or 0.0
+            else:
+                # Old format: top-level mean/std (token-level accuracy)
+                m = entry.get("mean")
+                s = entry.get("std") or 0.0
             means.append(m if m is not None else np.nan)
             stds.append(s)
         return np.array(means), np.array(stds)
 
+    # Use token-level accuracy (top-level mean in current JSON format)
     ld_mean, ld_std = get_series(ld)
     wl_mean, wl_std = get_series(wl)
 
@@ -232,7 +238,12 @@ def generate_data_efficiency():
     y_max = np.nanmax(np.concatenate([ld_mean + ld_std, wl_mean + wl_std]))
     if np.isnan(y_min):
         y_min, y_max = 40, 85
-    ax.set_ylim([max(0, y_min - 5), min(100, y_max + 5)])
+    # Adjust y-axis: data shows 84-91%, so use 80-95 range
+    if np.isnan(y_min) or y_min < 80:
+        y_min = 80
+    if np.isnan(y_max) or y_max > 95:
+        y_max = 95
+    ax.set_ylim([max(75, y_min - 2), min(100, y_max + 2)])
     ax.grid(True, alpha=0.3)
     ax.legend(loc='lower right', framealpha=0.9, fontsize=11)
 
@@ -249,6 +260,126 @@ def generate_data_efficiency():
     fig.savefig(FIGURES_DIR / 'data_efficiency.png', dpi=300, bbox_inches='tight')
     fig.savefig(FIGURES_DIR / 'data_efficiency.pdf', bbox_inches='tight')
     print(f"✓ Generated data_efficiency.png and data_efficiency.pdf from {results_path}")
+    plt.close()
+
+
+def generate_data_efficiency_table():
+    """Write LaTeX table with both accuracy metrics to doc/data_efficiency_table.tex."""
+    import os
+    project_root = Path(__file__).parent.parent
+    env_path = os.environ.get("DATA_EFFICIENCY_RESULTS")
+    results_path = Path(env_path) if env_path else (project_root / "data_efficiency_results.json")
+    if not results_path.is_absolute():
+        results_path = project_root / results_path
+    out_path = project_root / "doc" / "data_efficiency_table.tex"
+    if not results_path.exists():
+        # Placeholder table
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(out_path, "w") as f:
+            f.write("% Run scripts/run_data_efficiency_sweep.py then scripts/generate_figures.py to fill this table.\n")
+            f.write("\\begin{tabular}{lcccc}\\toprule\n")
+            f.write("\\textbf{\\% data} & \\multicolumn{2}{c}{LoRA-Diffusion} & \\multicolumn{2}{c}{Weight LoRA} \\\\\n")
+            f.write(" & Token & Class head & Token & Class head \\\\ \\midrule\n")
+            f.write("10 & -- & -- & -- & -- \\\\\n")
+            f.write("\\bottomrule\n\\end{tabular}\n")
+        print(f"⊘ Wrote placeholder {out_path} (no results JSON yet)")
+        return
+    with open(results_path) as f:
+        data = json.load(f)
+    fractions = data.get("fractions", [0.1, 0.2, 0.4, 0.6, 0.8, 1.0])
+    ld = data.get("lora_diffusion", {})
+    wl = data.get("weight_lora", {})
+
+    def cell(entry, metric_key):
+        if isinstance(entry.get(metric_key), dict):
+            m = entry[metric_key].get("mean")
+            s = entry[metric_key].get("std") or 0
+            if m is None:
+                return "--"
+            return f"{m:.1f}" if s == 0 else f"{m:.1f} $\\pm$ {s:.1f}"
+        m = entry.get("mean")
+        s = entry.get("std") or 0
+        if m is None:
+            return "--"
+        return f"{m:.1f}" if s == 0 else f"{m:.1f} $\\pm$ {s:.1f}"
+
+    lines = [
+        "\\begin{tabular}{lcccc}",
+        "\\toprule",
+        "\\textbf{\\% data} & \\multicolumn{2}{c}{LoRA-Diffusion} & \\multicolumn{2}{c}{Weight LoRA} \\\\",
+        " & Token & Class head & Token & Class head \\\\",
+        "\\midrule",
+    ]
+    for frac in fractions:
+        key = f"{frac:.2f}" if frac < 1.0 else "1.00"
+        pct = int(frac * 100)
+        ld_entry = ld.get(key, {})
+        wl_entry = wl.get(key, {})
+        # New format: entry.accuracy and entry.classification_head_val_acc are dicts with mean/std
+        # Old format: entry has top-level mean/std (single metric)
+        def two_cells(entry):
+            if isinstance(entry.get("accuracy"), dict) or isinstance(entry.get("classification_head_val_acc"), dict):
+                return cell(entry, "accuracy"), cell(entry, "classification_head_val_acc")
+            m = entry.get("mean")
+            if m is not None:
+                c = f"{m:.1f}" if (entry.get("std") or 0) == 0 else f"{m:.1f} $\\pm$ {(entry.get('std') or 0):.1f}"
+                return c, c  # old format: same value in both columns
+            return "--", "--"
+        ld_tok, ld_ch = two_cells(ld_entry)
+        wl_tok, wl_ch = two_cells(wl_entry)
+        lines.append(f"{pct} & {ld_tok} & {ld_ch} & {wl_tok} & {wl_ch} \\\\")
+    lines.extend(["\\bottomrule", "\\end{tabular}"])
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w") as f:
+        f.write("\n".join(lines))
+    print(f"✓ Generated {out_path} with both metrics (token-level and classification-head)")
+
+
+def generate_reg_ablation():
+    """Generate regularizer ablation figure: Val acc (token-level) and Train loss by configuration.
+
+    Data from job 44066468 (seed 42, 5k steps).
+    """
+    configs = ['No rank reg', 'No orth reg', 'Both off', 'Both on\n(default)']
+    val_acc = [88.4, 83.3, 89.3, 82.4]  # token-level denoising accuracy
+    train_loss = [0.1752, 0.2428, 0.1576, 0.2432]
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    x_pos = np.arange(len(configs))
+
+    bars1 = ax1.bar(x_pos, val_acc, color=colors, alpha=0.8, edgecolor='black', linewidth=1.2)
+    ax1.set_xlabel('Regularizer Configuration', fontweight='bold')
+    ax1.set_ylabel('Val acc. (token-level, %)', fontweight='bold')
+    ax1.set_title('Token-Level Validation Accuracy vs. Regularization', fontweight='bold', pad=10)
+    ax1.set_xticks(x_pos)
+    ax1.set_xticklabels(configs, rotation=15, ha='right')
+    ax1.set_ylim([78, 92])
+    ax1.grid(True, alpha=0.3, axis='y')
+    for bar, v in zip(bars1, val_acc):
+        ax1.text(bar.get_x() + bar.get_width()/2., bar.get_height() + 1,
+                 f'{v:.1f}', ha='center', va='bottom', fontweight='bold')
+    bars1[-1].set_edgecolor('red')
+    bars1[-1].set_linewidth(2.5)
+
+    bars2 = ax2.bar(x_pos, train_loss, color=colors, alpha=0.8, edgecolor='black', linewidth=1.2)
+    ax2.set_xlabel('Regularizer Configuration', fontweight='bold')
+    ax2.set_ylabel('Train loss', fontweight='bold')
+    ax2.set_title('Train Loss vs. Regularization', fontweight='bold', pad=10)
+    ax2.set_xticks(x_pos)
+    ax2.set_xticklabels(configs, rotation=15, ha='right')
+    ax2.set_ylim([0, 0.3])
+    ax2.grid(True, alpha=0.3, axis='y')
+    for bar, v in zip(bars2, train_loss):
+        ax2.text(bar.get_x() + bar.get_width()/2., bar.get_height() + 0.01,
+                 f'{v:.4f}', ha='center', va='bottom', fontweight='bold', fontsize=9)
+    bars2[-1].set_edgecolor('red')
+    bars2[-1].set_linewidth(2.5)
+
+    plt.tight_layout()
+    fig.savefig(FIGURES_DIR / 'reg_ablation.png', dpi=300, bbox_inches='tight')
+    fig.savefig(FIGURES_DIR / 'reg_ablation.pdf', bbox_inches='tight')
+    print(f"✓ Generated reg_ablation.png and reg_ablation.pdf")
     plt.close()
 
 
@@ -319,6 +450,8 @@ def main():
     generate_rank_ablation()
     generate_effective_rank()
     generate_data_efficiency()
+    generate_data_efficiency_table()
+    generate_reg_ablation()
     generate_trajectory_visualization()
     
     print(f"\n✓ All figures generated successfully!")

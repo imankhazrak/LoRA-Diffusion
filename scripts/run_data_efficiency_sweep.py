@@ -4,6 +4,14 @@ Run data-efficiency sweep: train LoRA-Diffusion and Weight LoRA on SST-2 at
 different training-set fractions, collect validation accuracy, and save
 results for the data efficiency figure (Figure 3).
 
+Uses classification-head validation accuracy (same metric as paper). Each
+(fraction, method, seed) is a separate training run with max_train_samples
+set to that fraction of the full train set.
+
+If 20%--100% give identical accuracies for a method, it can be because
+with one seed 20%% of data is enough to reach that validation plateau and
+more data does not improve (re-run with multiple seeds to see variance).
+
 Output: data_efficiency_results.json (used by scripts/generate_figures.py
 generate_data_efficiency()).
 
@@ -66,8 +74,10 @@ def run_train(task, method, seed, output_dir, config, subset_size, max_steps, dr
     return ret.returncode
 
 
-def run_evaluate(checkpoint_dir, task, output_file, dry_run):
-    """Run evaluate.py; return val accuracy or None."""
+def run_evaluate(checkpoint_dir, task, output_file, dry_run, use_classification_head=True):
+    """Run evaluate.py; return dict with both metrics in 0-100 or None if eval failed.
+    Keys: 'accuracy' (token-level denoising), 'classification_head_val_acc' (linear head on final hidden).
+    """
     cmd = [
         sys.executable, "scripts/evaluate.py",
         "--checkpoint", str(checkpoint_dir),
@@ -76,6 +86,8 @@ def run_evaluate(checkpoint_dir, task, output_file, dry_run):
         "--output_file", str(output_file),
         "--device", "cuda",
     ]
+    if use_classification_head:
+        cmd.append("--eval_classification_head")
     if dry_run:
         print(f"[DRY RUN] {' '.join(cmd)}")
         return None
@@ -86,7 +98,17 @@ def run_evaluate(checkpoint_dir, task, output_file, dry_run):
         return None
     with open(output_file) as f:
         data = json.load(f)
-    return data.get("metrics", {}).get("accuracy")
+    m = data.get("metrics", {})
+    out = {}
+    # Token-level accuracy (0-1 in JSON -> 0-100)
+    acc_token = m.get("accuracy")
+    if acc_token is not None:
+        out["accuracy"] = float(acc_token) * 100.0
+    # Classification-head val accuracy (already 0-100)
+    acc_ch = m.get("classification_head_val_acc")
+    if acc_ch is not None:
+        out["classification_head_val_acc"] = float(acc_ch)
+    return out if out else None
 
 
 def main():
@@ -103,10 +125,11 @@ def main():
         "weight_lora": {},
     }
 
+    METRICS = ["accuracy", "classification_head_val_acc"]
     for fraction in args.fractions:
         frac_key = f"{fraction:.2f}" if fraction < 1.0 else "1.00"
         for method in METHODS:
-            values = []
+            values_by_metric = {k: [] for k in METRICS}
             for seed in args.seeds:
                 pct = int(fraction * 100) if fraction < 1.0 else 100
                 exp_name = f"{args.task}_{method}_seed{seed}_pct{pct}"
@@ -118,15 +141,22 @@ def main():
                     print(f"Train failed: {exp_name}", file=sys.stderr)
                     continue
                 eval_file = exp_dir / "eval_results.json"
-                acc = run_evaluate(exp_dir, args.task, eval_file, args.dry_run)
-                if acc is not None:
-                    values.append(round(acc * 100, 2))
-            if not values:
-                results[method][frac_key] = {"mean": None, "std": None, "values": [], "n": 0}
-                continue
-            mean = round(statistics.mean(values), 2)
-            std = round(statistics.stdev(values), 2) if len(values) > 1 else 0.0
-            results[method][frac_key] = {"mean": mean, "std": std, "values": values, "n": len(values)}
+                metrics_dict = run_evaluate(exp_dir, args.task, eval_file, args.dry_run)
+                if metrics_dict is not None:
+                    for k in METRICS:
+                        if k in metrics_dict:
+                            values_by_metric[k].append(round(metrics_dict[k], 2))
+            # Build entry with both metrics (mean, std, values, n each)
+            entry = {}
+            for k in METRICS:
+                vals = values_by_metric[k]
+                if not vals:
+                    entry[k] = {"mean": None, "std": None, "values": [], "n": 0}
+                else:
+                    mean = round(statistics.mean(vals), 2)
+                    std = round(statistics.stdev(vals), 2) if len(vals) > 1 else 0.0
+                    entry[k] = {"mean": mean, "std": std, "values": vals, "n": len(vals)}
+            results[method][frac_key] = entry
 
     # Save results (project root or next to output_dir)
     results_path = Path(args.results_file)

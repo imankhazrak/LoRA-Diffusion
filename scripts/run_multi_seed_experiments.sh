@@ -1,20 +1,19 @@
 #!/bin/bash
 # Run multi-seed experiments for statistical analysis
-
-set -e
+# (set -e disabled so one failed run does not abort the whole job; we collect partial results)
 
 echo "=========================================="
 echo "Multi-Seed Experiment Pipeline"
 echo "=========================================="
 echo ""
 
-# Configuration
-TASKS="sst2"
-METHODS="full_ft lora_diffusion weight_lora adapters bitfit"
-NUM_SEEDS=10
-START_SEED=42
-OUTPUT_DIR="./outputs/multi_seed_experiments"
-CONFIG="configs/base_config.yaml"
+# Configuration (override with env: TASKS, OUTPUT_DIR, etc.)
+TASKS="${TASKS:-sst2}"
+METHODS="${METHODS:-full_ft lora_diffusion weight_lora adapters bitfit}"
+NUM_SEEDS="${NUM_SEEDS:-10}"
+START_SEED="${START_SEED:-42}"
+OUTPUT_DIR="${OUTPUT_DIR:-./outputs/multi_seed_experiments}"
+CONFIG="${CONFIG:-configs/base_config.yaml}"
 
 echo "Configuration:"
 echo "  Tasks: $TASKS"
@@ -23,45 +22,46 @@ echo "  Seeds: $START_SEED to $((START_SEED + NUM_SEEDS - 1)) ($NUM_SEEDS total)
 echo "  Output: $OUTPUT_DIR"
 echo ""
 
-# Step 1: Run training experiments
+# Step 1: Run training experiments (continue even if some runs fail; collect will use completed ones)
 echo "Step 1: Running training experiments..."
 echo "=========================================="
+TRAIN_EXIT=0
 python scripts/run_experiments.py \
   --tasks $TASKS \
   --methods $METHODS \
   --num_seeds $NUM_SEEDS \
   --start_seed $START_SEED \
   --output_dir $OUTPUT_DIR \
-  --config $CONFIG
+  --config $CONFIG || TRAIN_EXIT=$?
 
-if [ $? -ne 0 ]; then
-    echo "Error: Training experiments failed"
-    exit 1
+if [ "$TRAIN_EXIT" -ne 0 ]; then
+    echo "Warning: Some training runs failed (check logs). Continuing with evaluation and collect for completed runs."
 fi
 
 echo ""
-echo "Training complete!"
+echo "Training step finished."
 echo ""
 
 # Step 2: Run evaluation on all checkpoints (token-level accuracy, same metric as training; no generation)
 echo "Step 2: Running evaluation (token-level, same as training)..."
 echo "=========================================="
 
-for seed in $(seq $START_SEED $((START_SEED + NUM_SEEDS - 1))); do
+for task in $TASKS; do
+  for seed in $(seq $START_SEED $((START_SEED + NUM_SEEDS - 1))); do
     for method in $METHODS; do
-        checkpoint_dir="$OUTPUT_DIR/sst2_${method}_seed${seed}"
-        
+        checkpoint_dir="$OUTPUT_DIR/${task}_${method}_seed${seed}"
         if [ -d "$checkpoint_dir" ]; then
-            echo "Evaluating: sst2_${method}_seed${seed}"
+            echo "Evaluating: ${task}_${method}_seed${seed}"
             python scripts/evaluate.py \
               --checkpoint "$checkpoint_dir" \
-              --task sst2 \
+              --task "$task" \
               --split validation \
               --output_file "$checkpoint_dir/eval_results.json" || true
         else
             echo "Warning: Checkpoint not found: $checkpoint_dir"
         fi
     done
+  done
 done
 
 echo ""
@@ -72,62 +72,52 @@ echo ""
 echo "Step 3: Running classification-head evaluation (optional)..."
 echo "=========================================="
 
-for seed in $(seq $START_SEED $((START_SEED + NUM_SEEDS - 1))); do
+for task in $TASKS; do
+  for seed in $(seq $START_SEED $((START_SEED + NUM_SEEDS - 1))); do
     for method in $METHODS; do
-        checkpoint_dir="$OUTPUT_DIR/sst2_${method}_seed${seed}"
-        
+        checkpoint_dir="$OUTPUT_DIR/${task}_${method}_seed${seed}"
         if [ -d "$checkpoint_dir" ]; then
-            echo "Classification head: sst2_${method}_seed${seed}"
+            echo "Classification head: ${task}_${method}_seed${seed}"
             python scripts/evaluate.py \
               --checkpoint "$checkpoint_dir" \
-              --task sst2 \
+              --task "$task" \
               --split validation \
               --eval_classification_head \
               --output_file "$checkpoint_dir/eval_results_ch.json" || true
         fi
     done
+  done
 done
 
 echo ""
 echo "Classification-head evaluation complete!"
 echo ""
 
-# Step 4: Collect results and compute statistics
-echo "Step 4: Collecting results and computing statistics..."
-echo "=========================================="
+# Step 4 & 5: Collect results and generate tables (per task; do not exit on failure so we get partial outputs)
+for task in $TASKS; do
+  echo "Step 4: Collecting results for task=$task..."
+  echo "=========================================="
+  if ! python scripts/collect_results_with_stats.py \
+    --base_dir $OUTPUT_DIR \
+    --task $task \
+    --methods $METHODS \
+    --seeds "$START_SEED-$((START_SEED + NUM_SEEDS - 1))" \
+    --output "collected_results_with_stats_${task}.json" \
+    --baseline full_ft; then
+    echo "Warning: Results collection failed for $task (e.g. too few completed runs). Check logs."
+  fi
 
-python scripts/collect_results_with_stats.py \
-  --base_dir $OUTPUT_DIR \
-  --task sst2 \
-  --methods $METHODS \
-  --seeds "$START_SEED-$((START_SEED + NUM_SEEDS - 1))" \
-  --output collected_results_with_stats.json \
-  --baseline full_ft
+  echo "Step 5: Generating paper tables for task=$task..."
+  echo "=========================================="
+  if ! python scripts/generate_paper_tables.py \
+    --results "collected_results_with_stats_${task}.json" \
+    --output "paper_tables_with_stats_${task}.tex"; then
+    echo "Warning: Table generation failed for $task."
+  fi
+  echo ""
+done
 
-if [ $? -ne 0 ]; then
-    echo "Error: Results collection failed"
-    exit 1
-fi
-
-echo ""
-echo "Results collected!"
-echo ""
-
-# Step 5: Generate paper tables
-echo "Step 5: Generating paper tables..."
-echo "=========================================="
-
-python scripts/generate_paper_tables.py \
-  --results collected_results_with_stats.json \
-  --output paper_tables_with_stats.tex
-
-if [ $? -ne 0 ]; then
-    echo "Error: Table generation failed"
-    exit 1
-fi
-
-echo ""
-echo "Tables generated!"
+echo "Results collected and tables generated!"
 echo ""
 
 # Summary
@@ -135,13 +125,15 @@ echo "=========================================="
 echo "Pipeline Complete!"
 echo "=========================================="
 echo ""
-echo "Generated files:"
-echo "  - collected_results_with_stats.json"
-echo "  - collected_results_with_stats.summary.txt"
-echo "  - paper_tables_with_stats.tex"
+echo "Generated files (per task):"
+for task in $TASKS; do
+  echo "  - collected_results_with_stats_${task}.json"
+  echo "  - collected_results_with_stats_${task}.summary.txt"
+  echo "  - paper_tables_with_stats_${task}.tex"
+done
 echo ""
 echo "Next steps:"
-echo "  1. Review collected_results_with_stats.summary.txt for statistical summary"
-echo "  2. Copy tables from paper_tables_with_stats.tex to doc/Paper.tex"
+echo "  1. Review collected_results_with_stats_<task>.summary.txt for statistical summary"
+echo "  2. Copy tables from paper_tables_with_stats_<task>.tex to doc/Paper.tex"
 echo "  3. Compile paper: cd doc && pdflatex Paper.tex"
 echo ""

@@ -117,7 +117,14 @@ def run_experiment(task, method, seed, output_dir, config, dry_run=False, max_st
         return 0
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed: {experiment_name}")
-        logger.error(f"Error: {e.stderr}")
+        err_msg = (e.stderr or "").strip() or (e.stdout or "").strip()
+        if err_msg:
+            logger.error(f"Error (stderr/stdout): {err_msg[:2000]}")
+        else:
+            logger.error(f"Exit code: {e.returncode} (no stderr/stdout captured)")
+        return 1
+    except Exception as e:
+        logger.exception(f"Unexpected error running {experiment_name}: {e}")
         return 1
 
 

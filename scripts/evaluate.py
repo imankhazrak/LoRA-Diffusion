@@ -86,6 +86,13 @@ def parse_args():
         help="Names of tasks corresponding to task_modules (for composition)",
     )
     parser.add_argument(
+        "--composition_mode",
+        type=str,
+        default="router",
+        choices=["router", "uniform", "task_arithmetic"],
+        help="Composition mode: router (default), uniform (1/M), or task_arithmetic (sum of deltas)",
+    )
+    parser.add_argument(
         "--eval_classification_head",
         action="store_true",
         help="Evaluate using classification head on final denoised representation (primary metric).",
@@ -455,14 +462,18 @@ def get_final_hiddens_and_labels(
     config,
     label_names,
     classification_seq_len=5,
+    composer=None,
 ):
     """
     Collect final-step hidden states and label indices for classification-head evaluation.
     Returns (hiddens, label_indices) where hiddens is (N, hidden_dim), label_indices (N,) 0/1.
+    When composer is provided (multi-task composition), uses sample_with_composition.
     """
     model.eval()
     if lora_module:
         lora_module.eval()
+    if composer:
+        composer.eval()
     
     all_hiddens = []
     all_label_indices = []
@@ -474,7 +485,17 @@ def get_final_hiddens_and_labels(
         instruction_mask = batch["instruction_mask"].to(device)
         target_texts = batch.get("target_texts", [])
         
-        if lora_module:
+        if composer is not None:
+            xt, final_hidden = model.sample_with_composition(
+                batch_size=batch_size,
+                seq_len=seq_len,
+                instruction_ids=instruction_ids,
+                instruction_mask=instruction_mask,
+                composer=composer,
+                device=device,
+                return_final_hidden=True,
+            )
+        elif lora_module:
             xt, final_hidden = model.sample_with_lora(
                 batch_size=batch_size,
                 seq_len=seq_len,
@@ -778,11 +799,13 @@ def main():
             composer.load_task_module(task_name, task_checkpoint_path)
         
         # Load router if available
-        router_path = Path(args.task_modules[0]) / "router.pt"
+        router_path = Path(args.router_path) if args.router_path else Path(args.task_modules[0]) / "router.pt"
         if router_path.exists():
             logger.info(f"Loading router from {router_path}")
             router_state = torch.load(router_path, map_location=device)
             composer.router.load_state_dict(router_state)
+        composer.composition_mode = args.composition_mode
+        logger.info(f"Composition mode: {composer.composition_mode}")
     else:
         # Load single LoRA module
         lora_path = checkpoint_path / "lora_module.pt"
@@ -792,6 +815,7 @@ def main():
             lora_module.load_state_dict(torch.load(lora_path, map_location=device))
     
     # Classification-head evaluation (primary classification metric)
+    metrics_extra = {}
     if args.eval_classification_head:
         task_type = task_config.get("type", "classification")
         label_names = task_config.get("label_names", ["negative", "positive"])
@@ -821,14 +845,17 @@ def main():
         logger.info("Collecting final hiddens for classification head (train)...")
         h_train, y_train = get_final_hiddens_and_labels(
             model, lora_module, train_loader, device, config, label_names,
+            composer=composer,
         )
         logger.info("Collecting final hiddens (validation)...")
         h_val, y_val = get_final_hiddens_and_labels(
             model, lora_module, val_loader, device, config, label_names,
+            composer=composer,
         )
         logger.info("Collecting final hiddens (test)...")
         h_test, y_test = get_final_hiddens_and_labels(
             model, lora_module, test_loader, device, config, label_names,
+            composer=composer,
         )
         
         if h_train is not None and h_val is not None and h_test is not None:
@@ -911,6 +938,8 @@ def main():
         for k, v in gen_metrics.items():
             if k != "accuracy":
                 metrics[k] = v
+    
+    metrics.update(metrics_extra)
     
     # Log results
     logger.info("Results:")
