@@ -106,8 +106,8 @@
 \newlabel{tab:latency}{{10}{11}{Training time and inference latency (mean over 10 seeds). Same hardware and batch size; inference at batch 8, seq length 128, $T$ steps. Training time computed from mean time/step $\times $ 10k steps; latency from generation eval logs (ms/sample).\relax }{table.caption.12}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Training and inference efficiency on SST-2 (BERT-based model, 137.7M trainable parameters, batch size 64).\relax }}{11}{table.caption.13}\protected@file@percent }
 \newlabel{tab:efficiency}{{11}{11}{Training and inference efficiency on SST-2 (BERT-based model, 137.7M trainable parameters, batch size 64).\relax }{table.caption.13}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Multi-task composition (placeholder). Per-task metric when using composed model; rows = task, columns = single-task, composed (router), average, task arithmetic.\relax }}{11}{table.caption.14}\protected@file@percent }
-\newlabel{tab:multitask}{{12}{11}{Multi-task composition (placeholder). Per-task metric when using composed model; rows = task, columns = single-task, composed (router), average, task arithmetic.\relax }{table.caption.14}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Multi-task composition. Per-task validation metric (\%): classification-head accuracy for SST-2 and QNLI; F1 or accuracy for MRPC. Columns: Single-task (adapter only), Composed (router), Average ($w_j=1/M$), Task arithmetic (sum of deltas).\relax }}{11}{table.caption.14}\protected@file@percent }
+\newlabel{tab:multitask}{{12}{11}{Multi-task composition. Per-task validation metric (\%): classification-head accuracy for SST-2 and QNLI; F1 or accuracy for MRPC. Columns: Single-task (adapter only), Composed (router), Average ($w_j=1/M$), Task arithmetic (sum of deltas).\relax }{table.caption.14}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.6}Catastrophic Forgetting and Convergence}{11}{subsection.4.6}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.7}Statistical Significance and Effect Sizes}{11}{subsection.4.7}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces Training loss and convergence on SST-2 (lower loss is better). Convergence: 10000 steps; loss reduction = (initial $-$ final)/initial.\relax }}{12}{table.caption.15}\protected@file@percent }
@@ -117,26 +117,37 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.8}Method Comparison Summary}{12}{subsection.4.8}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {15}{\ignorespaces Method comparison summary on SST-2 (mean over 10 seeds). Val acc.\ = token-level denoising (same as training).\relax }}{12}{table.caption.17}\protected@file@percent }
 \newlabel{tab:composition}{{15}{12}{Method comparison summary on SST-2 (mean over 10 seeds). Val acc.\ = token-level denoising (same as training).\relax }{table.caption.17}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.9}Rank and Module Ablations}{12}{subsection.4.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.9}Rank and Module Ablations}{13}{subsection.4.9}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {16}{\ignorespaces Rank configuration ablation (SST-2). Train acc. is token-level; trajectory-only params. For BERT $d=768$, step-adaptive is 1.7M (1.2\%).\relax }}{13}{table.caption.18}\protected@file@percent }
 \newlabel{tab:rank_ablation}{{16}{13}{Rank configuration ablation (SST-2). Train acc. is token-level; trajectory-only params. For BERT $d=768$, step-adaptive is 1.7M (1.2\%).\relax }{table.caption.18}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {17}{\ignorespaces Effect of number of LoRA modules per step.\relax }}{13}{table.caption.19}\protected@file@percent }
 \newlabel{tab:num_modules}{{17}{13}{Effect of number of LoRA modules per step.\relax }{table.caption.19}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {18}{\ignorespaces Effect of rank and orthogonality regularization (SST-2). Val acc. from generation-based evaluation; train loss from denoising objective.\relax }}{13}{table.caption.20}\protected@file@percent }
-\newlabel{tab:reg_ablation}{{18}{13}{Effect of rank and orthogonality regularization (SST-2). Val acc. from generation-based evaluation; train loss from denoising objective.\relax }{table.caption.20}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.10}Model Size Scaling}{13}{subsection.4.10}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.11}Trajectory vs.\ Weight LoRA}{13}{subsection.4.11}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {19}{\ignorespaces Performance vs.\ model size (illustrative).\relax }}{14}{table.caption.21}\protected@file@percent }
-\newlabel{tab:model_scaling}{{19}{14}{Performance vs.\ model size (illustrative).\relax }{table.caption.21}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {20}{\ignorespaces Trajectory LoRA vs.\ weight LoRA (SST-2, BERT-based model).\relax }}{14}{table.caption.22}\protected@file@percent }
-\newlabel{tab:detailed_comparison}{{20}{14}{Trajectory LoRA vs.\ weight LoRA (SST-2, BERT-based model).\relax }{table.caption.22}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {18}{\ignorespaces Effect of rank and orthogonality regularization (SST-2). Val acc.\ (token-level) = denoising accuracy; Val acc.\ (class.\ head) = classification-head; train loss from denoising objective. Results from job 44066468 (seed 42, 5k steps).\relax }}{13}{table.caption.20}\protected@file@percent }
+\newlabel{tab:reg_ablation}{{18}{13}{Effect of rank and orthogonality regularization (SST-2). Val acc.\ (token-level) = denoising accuracy; Val acc.\ (class.\ head) = classification-head; train loss from denoising objective. Results from job 44066468 (seed 42, 5k steps).\relax }{table.caption.20}{}}
+\@writefile{toc}{\contentsline {paragraph}{Interpretation.}{13}{section*.21}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Regularizer ablation (job 44066468). Left: Val acc.\ (token-level denoising). Right: Train loss. Default (both on) shows strongest regularization effect.\relax }}{14}{figure.caption.22}\protected@file@percent }
+\newlabel{fig:reg_ablation}{{1}{14}{Regularizer ablation (job 44066468). Left: Val acc.\ (token-level denoising). Right: Train loss. Default (both on) shows strongest regularization effect.\relax }{figure.caption.22}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.10}Model Size Scaling}{14}{subsection.4.10}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {19}{\ignorespaces Performance vs.\ model size (illustrative).\relax }}{14}{table.caption.23}\protected@file@percent }
+\newlabel{tab:model_scaling}{{19}{14}{Performance vs.\ model size (illustrative).\relax }{table.caption.23}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.11}Trajectory vs.\ Weight LoRA}{14}{subsection.4.11}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.12}Visualizations}{14}{subsection.4.12}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Rank vs.\ performance (left) and vs.\ trainable parameters (right). Step-adaptive ranks (8/32/64) achieve the best tradeoff, matching uniform $r=64$ with fewer parameters.\relax }}{14}{figure.caption.23}\protected@file@percent }
-\newlabel{fig:rank_ablation}{{1}{14}{Rank vs.\ performance (left) and vs.\ trainable parameters (right). Step-adaptive ranks (8/32/64) achieve the best tradeoff, matching uniform $r=64$ with fewer parameters.\relax }{figure.caption.23}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {5}Conclusion}{14}{section.5}\protected@file@percent }
-\newlabel{sec:conclusion}{{5}{14}{Conclusion}{section.5}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Effective rank of LoRA modules across diffusion steps. Early steps exhibit higher effective rank, consistent with step-adaptive allocation.\relax }}{15}{figure.caption.24}\protected@file@percent }
-\newlabel{fig:effective_rank}{{2}{15}{Effective rank of LoRA modules across diffusion steps. Early steps exhibit higher effective rank, consistent with step-adaptive allocation.\relax }{figure.caption.24}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {20}{\ignorespaces Trajectory LoRA vs.\ weight LoRA (SST-2, BERT-based model).\relax }}{15}{table.caption.24}\protected@file@percent }
+\newlabel{tab:detailed_comparison}{{20}{15}{Trajectory LoRA vs.\ weight LoRA (SST-2, BERT-based model).\relax }{table.caption.24}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Rank vs.\ performance (left) and vs.\ trainable parameters (right). Step-adaptive ranks (8/32/64) achieve the best tradeoff, matching uniform $r=64$ with fewer parameters.\relax }}{15}{figure.caption.25}\protected@file@percent }
+\newlabel{fig:rank_ablation}{{2}{15}{Rank vs.\ performance (left) and vs.\ trainable parameters (right). Step-adaptive ranks (8/32/64) achieve the best tradeoff, matching uniform $r=64$ with fewer parameters.\relax }{figure.caption.25}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.13}Data Efficiency}{15}{subsection.4.13}\protected@file@percent }
+\newlabel{sec:data_efficiency}{{4.13}{15}{Data Efficiency}{subsection.4.13}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Conclusion}{15}{section.5}\protected@file@percent }
+\newlabel{sec:conclusion}{{5}{15}{Conclusion}{section.5}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Effective rank of LoRA modules across diffusion steps. Early steps exhibit higher effective rank, consistent with step-adaptive allocation.\relax }}{16}{figure.caption.26}\protected@file@percent }
+\newlabel{fig:effective_rank}{{3}{16}{Effective rank of LoRA modules across diffusion steps. Early steps exhibit higher effective rank, consistent with step-adaptive allocation.\relax }{figure.caption.26}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Performance vs.\ training data size (SST-2 validation accuracy). LoRA-Diffusion and weight LoRA trained at 10\%, 20\%, 40\%, 60\%, 80\%, and 100\% of the training set. Results from job 44079308 (seed 42).\relax }}{16}{figure.caption.27}\protected@file@percent }
+\newlabel{fig:data_efficiency}{{4}{16}{Performance vs.\ training data size (SST-2 validation accuracy). LoRA-Diffusion and weight LoRA trained at 10\%, 20\%, 40\%, 60\%, 80\%, and 100\% of the training set. Results from job 44079308 (seed 42).\relax }{figure.caption.27}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {21}{\ignorespaces Data efficiency: validation accuracy (\%) by training data fraction. \textbf  {Token}: token-level denoising accuracy. \textbf  {Class head}: classification-head validation accuracy. Results from job 44079308 (seed 42).\relax }}{17}{table.caption.28}\protected@file@percent }
+\newlabel{tab:data_efficiency}{{21}{17}{Data efficiency: validation accuracy (\%) by training data fraction. \textbf {Token}: token-level denoising accuracy. \textbf {Class head}: classification-head validation accuracy. Results from job 44079308 (seed 42).\relax }{table.caption.28}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces t-SNE visualization of denoising trajectories. Left: Pretrained model trajectories (all tasks mixed). Right: LoRA-Diffusion trajectories (task-specific clusters emerge). LoRA modules successfully inject task-specific structure.\relax }}{17}{figure.caption.29}\protected@file@percent }
+\newlabel{fig:trajectory_viz}{{5}{17}{t-SNE visualization of denoising trajectories. Left: Pretrained model trajectories (all tasks mixed). Right: LoRA-Diffusion trajectories (task-specific clusters emerge). LoRA modules successfully inject task-specific structure.\relax }{figure.caption.29}{}}
 \bibstyle{plainnat}
 \bibcite{aghajanyan2020intrinsic}{{1}{2020}{{Aghajanyan et al.}}{{}}}
 \bibcite{austin2021structured}{{2}{2021}{{Austin et al.}}{{}}}
@@ -144,34 +155,30 @@
 \bibcite{dettmers2023qlora}{{4}{2023}{{Dettmers et al.}}{{}}}
 \bibcite{fedus2022switch}{{5}{2022}{{Fedus et al.}}{{}}}
 \bibcite{hoogeboom2021autoregressive}{{6}{2021}{{Hoogeboom et al.}}{{}}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Performance vs.\ training data size. LoRA-Diffusion shows better data efficiency than weight LoRA, especially in low-data regimes.\relax }}{16}{figure.caption.25}\protected@file@percent }
-\newlabel{fig:data_efficiency}{{3}{16}{Performance vs.\ training data size. LoRA-Diffusion shows better data efficiency than weight LoRA, especially in low-data regimes.\relax }{figure.caption.25}{}}
 \bibcite{houlsby2019parameter}{{7}{2019}{{Houlsby et al.}}{{}}}
 \bibcite{hu2021lora}{{8}{2021}{{Hu et al.}}{{}}}
 \bibcite{ilharco2022editing}{{9}{2022}{{Ilharco et al.}}{{}}}
 \bibcite{lester2021power}{{10}{2021}{{Lester et al.}}{{}}}
+\@writefile{toc}{\contentsline {section}{\numberline {A}Timing Derivations and Per-seed Breakdown}{18}{appendix.A}\protected@file@percent }
+\newlabel{sec:appendix_timing}{{A}{18}{Timing Derivations and Per-seed Breakdown}{appendix.A}{}}
+\@writefile{toc}{\contentsline {paragraph}{Derivation notes.}{18}{section*.33}\protected@file@percent }
 \bibcite{li2018measuring}{{11}{2018}{{Li et al.}}{{}}}
 \bibcite{li2021prefix}{{12}{2021}{{Li et al.}}{{}}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces t-SNE visualization of denoising trajectories. Left: Pretrained model trajectories (all tasks mixed). Right: LoRA-Diffusion trajectories (task-specific clusters emerge). LoRA modules successfully inject task-specific structure.\relax }}{17}{figure.caption.26}\protected@file@percent }
-\newlabel{fig:trajectory_viz}{{4}{17}{t-SNE visualization of denoising trajectories. Left: Pretrained model trajectories (all tasks mixed). Right: LoRA-Diffusion trajectories (task-specific clusters emerge). LoRA modules successfully inject task-specific structure.\relax }{figure.caption.26}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {A}Timing Derivations and Per-seed Breakdown}{17}{appendix.A}\protected@file@percent }
-\newlabel{sec:appendix_timing}{{A}{17}{Timing Derivations and Per-seed Breakdown}{appendix.A}{}}
-\@writefile{toc}{\contentsline {paragraph}{Derivation notes.}{17}{section*.30}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {A.1}Per-seed timing breakdown}{17}{subsection.A.1}\protected@file@percent }
-\newlabel{sec:appendix_timing_per_seed}{{A.1}{17}{Per-seed timing breakdown}{subsection.A.1}{}}
 \bibcite{li2022diffusion}{{13}{2022}{{Li et al.}}{{}}}
 \bibcite{lou2023discrete}{{14}{2023}{{Lou et al.}}{{}}}
 \bibcite{sahoo2024masked}{{15}{2024}{{Sahoo et al.}}{{}}}
 \bibcite{tishby2000information}{{16}{2000}{{Tishby et al.}}{{}}}
 \bibcite{tishby2015deep}{{17}{2015}{{Tishby and Zaslavsky}}{{}}}
 \bibcite{wang2020orthogonal}{{18}{2020}{{Wang et al.}}{{}}}
+\@writefile{lot}{\contentsline {table}{\numberline {22}{\ignorespaces Per-seed timing breakdown for Full FT (training time in minutes, inference latency in ms/sample).\relax }}{19}{table.caption.34}\protected@file@percent }
+\newlabel{tab:timing_per_seed_full_ft}{{22}{19}{Per-seed timing breakdown for Full FT (training time in minutes, inference latency in ms/sample).\relax }{table.caption.34}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {23}{\ignorespaces Per-seed timing breakdown for LoRA-Diffusion (training time in minutes, inference latency in ms/sample).\relax }}{19}{table.caption.35}\protected@file@percent }
+\newlabel{tab:timing_per_seed_lora_diffusion}{{23}{19}{Per-seed timing breakdown for LoRA-Diffusion (training time in minutes, inference latency in ms/sample).\relax }{table.caption.35}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.1}Per-seed timing breakdown}{19}{subsection.A.1}\protected@file@percent }
+\newlabel{sec:appendix_timing_per_seed}{{A.1}{19}{Per-seed timing breakdown}{subsection.A.1}{}}
 \bibcite{wang2022super}{{19}{2022}{{Wang et al.}}{{}}}
 \bibcite{zaken2021bitfit}{{20}{2021}{{Zaken et al.}}{{}}}
 \bibcite{zhang2023adalora}{{21}{2023}{{Zhang et al.}}{{}}}
-\@writefile{lot}{\contentsline {table}{\numberline {21}{\ignorespaces Per-seed timing breakdown for Full FT (training time in minutes, inference latency in ms/sample).\relax }}{18}{table.caption.31}\protected@file@percent }
-\newlabel{tab:timing_per_seed_full_ft}{{21}{18}{Per-seed timing breakdown for Full FT (training time in minutes, inference latency in ms/sample).\relax }{table.caption.31}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {22}{\ignorespaces Per-seed timing breakdown for LoRA-Diffusion (training time in minutes, inference latency in ms/sample).\relax }}{18}{table.caption.32}\protected@file@percent }
-\newlabel{tab:timing_per_seed_lora_diffusion}{{22}{18}{Per-seed timing breakdown for LoRA-Diffusion (training time in minutes, inference latency in ms/sample).\relax }{table.caption.32}{}}
 \bibcite{tlora2024}{{22}{2024}{{T-LoRA}}{{}}}
 \bibcite{foura2024}{{23}{2024}{{FouRA}}{{}}}
 \bibcite{talora2024}{{24}{2024}{{TALoRA}}{{}}}
@@ -182,9 +189,9 @@
 \bibcite{tclora2024}{{29}{2024}{{TC-LoRA}}{{}}}
 \bibcite{efficientdm2023}{{30}{2023}{{EfficientDM}}{{}}}
 \bibcite{glance2024}{{31}{2024}{{Glance}}{{}}}
+\@writefile{lot}{\contentsline {table}{\numberline {24}{\ignorespaces Per-seed timing breakdown for Weight LoRA (training time in minutes, inference latency in ms/sample).\relax }}{20}{table.caption.36}\protected@file@percent }
+\newlabel{tab:timing_per_seed_weight_lora}{{24}{20}{Per-seed timing breakdown for Weight LoRA (training time in minutes, inference latency in ms/sample).\relax }{table.caption.36}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {25}{\ignorespaces Per-seed timing breakdown for Adapters (training time in minutes, inference latency in ms/sample).\relax }}{20}{table.caption.37}\protected@file@percent }
+\newlabel{tab:timing_per_seed_adapters}{{25}{20}{Per-seed timing breakdown for Adapters (training time in minutes, inference latency in ms/sample).\relax }{table.caption.37}{}}
 \bibcite{deltasampling2024}{{32}{2024}{{Delta Sampling}}{{}}}
-\@writefile{lot}{\contentsline {table}{\numberline {23}{\ignorespaces Per-seed timing breakdown for Weight LoRA (training time in minutes, inference latency in ms/sample).\relax }}{19}{table.caption.33}\protected@file@percent }
-\newlabel{tab:timing_per_seed_weight_lora}{{23}{19}{Per-seed timing breakdown for Weight LoRA (training time in minutes, inference latency in ms/sample).\relax }{table.caption.33}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {24}{\ignorespaces Per-seed timing breakdown for Adapters (training time in minutes, inference latency in ms/sample).\relax }}{19}{table.caption.34}\protected@file@percent }
-\newlabel{tab:timing_per_seed_adapters}{{24}{19}{Per-seed timing breakdown for Adapters (training time in minutes, inference latency in ms/sample).\relax }{table.caption.34}{}}
-\gdef \@abspage@last{19}
+\gdef \@abspage@last{21}

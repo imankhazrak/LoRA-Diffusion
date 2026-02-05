@@ -12,6 +12,8 @@ This directory contains placeholder references for figures that need to be gener
 
 4. **trajectory_visualization.png/pdf**: t-SNE visualization of denoising trajectories showing task-specific clusters.
 
+5. **reg_ablation.png/pdf**: Regularizer ablation (job 44066468). Val acc. and train loss vs. regularization configuration. Run `python scripts/generate_figures.py` to generate from job 44066468 results.
+
 ## Generation
 
 - **Data efficiency (Figure 3):** Run `scripts/run_data_efficiency_sweep.py` to train LoRA-Diffusion and weight LoRA at 10%, 20%, 40%, 60%, 80%, 100% of SST-2 training data and collect validation accuracy; then run `scripts/generate_figures.py`.

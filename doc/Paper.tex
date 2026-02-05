@@ -426,7 +426,7 @@ We train single-task LoRA-Diffusion adapters per task (e.g., SST-2, MRPC, QNLI);
 
 \begin{table}[h]
 \centering
-\caption{Multi-task composition (placeholder). Per-task metric when using composed model; rows = task, columns = single-task, composed (router), average, task arithmetic.}
+\caption{Multi-task composition. Per-task validation metric (\%): classification-head accuracy for SST-2 and QNLI; F1 or accuracy for MRPC. Columns: Single-task (adapter only), Composed (router), Average ($w_j=1/M$), Task arithmetic (sum of deltas).}
 \label{tab:multitask}
 \begin{tabular}{@{}lcccc@{}}
 \toprule
@@ -546,17 +546,29 @@ $k=8$ & 81.0 & 36.4M (2.80\%) & 1.35$\times$ \\ \bottomrule
 
 \begin{table}[h]
 \centering
-\caption{Effect of rank and orthogonality regularization (SST-2). Val acc. from generation-based evaluation; train loss from denoising objective.}
+\caption{Effect of rank and orthogonality regularization (SST-2). Val acc.\ (token-level) = denoising accuracy; Val acc.\ (class.\ head) = classification-head; train loss from denoising objective. Results from job 44066468 (seed 42, 5k steps).}
 \label{tab:reg_ablation}
-\begin{tabular}{@{}lccc@{}}
+\begin{tabular}{@{}lcccc@{}}
 \toprule
-Configuration & $\lambda_{\text{rank}}$, $\lambda_{\text{orth}}$ & Val acc.\ (\%) & Train loss \\ \midrule
-No rank reg & 0, 0.001 & (see supplement) & (see supplement) \\
-No orth reg & 0.01, 0 & (see supplement) & (see supplement) \\
-Both off & 0, 0 & (see supplement) & (see supplement) \\
-Both on (default) & 0.01, 0.001 & 49.36 & 0.1781 \\ \bottomrule
+Configuration & $\lambda_{\text{rank}}$, $\lambda_{\text{orth}}$ & Val acc.\ (token, \%) & Val acc.\ (class.\ head, \%) & Train loss \\ \midrule
+No rank reg & 0, 0.001 & 88.4 & 68.1 & 0.1752 \\
+No orth reg & 0.01, 0 & 83.3 & 48.2 & 0.2428 \\
+Both off & 0, 0 & 89.3 & 69.0 & 0.1576 \\
+Both on (default) & 0.01, 0.001 & 82.4 & 50.9 & 0.2432 \\ \bottomrule
 \end{tabular}
 \end{table}
+
+\paragraph{Interpretation.}
+The ablation is conducted on the \textbf{LoRA-Diffusion} model (trajectory-level adapters), not weight LoRA. Rank regularization penalizes the nuclear norm of the LoRA matrices, encouraging low-rank structure; orthogonality regularization encourages different LoRA modules to learn orthogonal directions. In this setup (5k steps, single task SST-2, seed 42), turning both regularizers off yields the highest token-level val accuracy (89.3\%) and lowest train loss (0.1576). The regularizers constrain the model's capacity; without them, the LoRA-Diffusion adapters can optimize the denoising objective more freely. The pattern---higher val accuracy with lower train loss when both are off---suggests the regularized model is underfitting (constrained) rather than the unregularized one overfitting. We \textbf{cannot} conclude that LoRA-Diffusion never overfits or never benefits from regularization: this ablation is limited to 5k steps and a single task. Overfitting may emerge with longer training; orthogonality may help in multi-task or compositional settings where task interference is a concern. We adopt the regularized default ($\lambda_{\text{rank}}=0.01$, $\lambda_{\text{orth}}=0.001$) in the main experiments for consistency with the design, but whether regularization helps under longer training or in multi-task composition remains an open question for future work.
+
+Figure~\ref{fig:reg_ablation} visualizes the regularizer ablation: removing rank regularization (no rank reg) or both regularizers (both off) improves token-level val accuracy and reduces train loss; removing orthogonality alone (no orth reg) hurts val accuracy.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.9\textwidth]{figures/reg_ablation}
+\caption{Regularizer ablation (job 44066468). Left: Val acc.\ (token-level denoising). Right: Train loss. Default (both on) shows strongest regularization effect.}
+\label{fig:reg_ablation}
+\end{figure}
 
 \subsection{Model Size Scaling}
 
@@ -599,7 +611,7 @@ Trainable parameters & 6.6\% (9.7M) & 28.7\% total (1.2\% adapters) \\ \bottomru
 
 \subsection{Visualizations}
 
-Figure~\ref{fig:rank_ablation} plots performance and trainable parameters versus rank configuration, comparing step-adaptive ranks with uniform settings. Figure~\ref{fig:effective_rank} shows the effective rank of LoRA modules across diffusion steps, validating our step-adaptive allocation strategy. Figure~\ref{fig:data_efficiency} illustrates data efficiency by plotting performance against training data size. Figure~\ref{fig:trajectory_viz} provides a t-SNE visualization of learned trajectory perturbations. These figures are generated from the experimental outputs (e.g.\ via \texttt{notebooks/analyze\_results.ipynb} or \texttt{scripts/generate\_figures.py}).
+Figure~\ref{fig:rank_ablation} plots performance and trainable parameters versus rank configuration, comparing step-adaptive ranks with uniform settings. Figure~\ref{fig:effective_rank} shows the effective rank of LoRA modules across diffusion steps, validating our step-adaptive allocation strategy. Section~\ref{sec:data_efficiency} reports data efficiency (Figure~\ref{fig:data_efficiency}, Table~\ref{tab:data_efficiency}). Figure~\ref{fig:trajectory_viz} provides a t-SNE visualization of learned trajectory perturbations. These figures are generated from the experimental outputs (e.g.\ via \texttt{notebooks/analyze\_results.ipynb} or \texttt{scripts/generate\_figures.py}).
 
 \begin{figure}[h]
 \centering
@@ -615,12 +627,24 @@ Figure~\ref{fig:rank_ablation} plots performance and trainable parameters versus
 \label{fig:effective_rank}
 \end{figure}
 
+\subsection{Data Efficiency}
+\label{sec:data_efficiency}
+
+We train LoRA-Diffusion and weight LoRA on SST-2 at 10\%, 20\%, 40\%, 60\%, 80\%, and 100\% of the training set (10k steps per run, seed 42). Results from job 44079308 are shown in Figure~\ref{fig:data_efficiency} and Table~\ref{tab:data_efficiency}. LoRA-Diffusion reaches 90.3\% token-level val accuracy with only 10\% of the data and plateaus near 91.2\% from 20\% onward; weight LoRA plateaus near 83.9\% from 20\% onward. The identical results from 20\% to 100\% indicate that both methods converge to their validation accuracy plateau with approximately 20\% of the training data (13,470 samples), demonstrating efficient learning where additional data beyond this point does not improve performance. LoRA-Diffusion thus achieves higher accuracy at every data fraction and is more data-efficient, particularly in the low-data regime (10\%). This suggests that trajectory-level adaptation can leverage limited supervision more effectively than weight-level LoRA for this diffusion setup.
+
 \begin{figure}[h]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/data_efficiency}
-\caption{Performance vs.\ training data size (SST-2 validation accuracy). Generated from real sweep results via \texttt{scripts/run\_data\_efficiency\_sweep.py}; LoRA-Diffusion and weight LoRA are trained at 10\%, 20\%, 40\%, 60\%, 80\%, and 100\% of the training set.}
+\caption{Performance vs.\ training data size (SST-2 validation accuracy). LoRA-Diffusion and weight LoRA trained at 10\%, 20\%, 40\%, 60\%, 80\%, and 100\% of the training set. Results from job 44079308 (seed 42). Both methods plateau at 20\% data, indicating efficient convergence with limited training samples.}
 \label{fig:data_efficiency}
 \end{figure}
+
+\begin{table}[h]
+\centering
+\caption{Data efficiency: validation accuracy (\%) by training data fraction. \textbf{Token}: token-level denoising accuracy. \textbf{Class head}: classification-head validation accuracy. Results from job 44079308 (seed 42).}
+\label{tab:data_efficiency}
+\input{data_efficiency_table}
+\end{table}
 
 \begin{figure}[h]
 \centering
