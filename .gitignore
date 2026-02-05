@@ -49,6 +49,9 @@ logs/
 data/cache/
 lora-diffusion/
 scratch/
+data/hf_cache/
+data/hub_cache/
+data/transformers_cache/
 *.pt
 *.pth
 *.ckpt
