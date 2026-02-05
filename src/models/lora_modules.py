@@ -560,6 +560,9 @@ class MultiTaskLoRAComposer(nn.Module):
         # Store task-specific LoRA modules (loaded separately via load_task_module)
         self.task_modules: Dict[str, LoRADiffusionModule] = {}
         
+        # Composition mode: "router" (default), "uniform" (1/M), "task_arithmetic" (sum of deltas)
+        self.composition_mode = "router"
+        
         # Step-adaptive scaling (shared from config)
         lora_config = config["lora"]
         self.scaling_early = lora_config["scaling_early"]
@@ -583,13 +586,14 @@ class MultiTaskLoRAComposer(nn.Module):
         if task_name in self.task_modules:
             raise ValueError(f"Task module for '{task_name}' already loaded")
         
-        # Load LoRA module
+        # Load LoRA module (check checkpoint root then final_model/ subdir)
         lora_module = LoRADiffusionModule(self.config)
         lora_path = checkpoint_path / "lora_module.pt"
-        
+        if not lora_path.exists():
+            lora_path = checkpoint_path / "final_model" / "lora_module.pt"
         if not lora_path.exists():
             raise FileNotFoundError(
-                f"LoRA module not found at {lora_path}. "
+                f"LoRA module not found at {checkpoint_path} (tried lora_module.pt and final_model/lora_module.pt). "
                 f"Expected checkpoint directory with lora_module.pt"
             )
         
@@ -623,6 +627,7 @@ class MultiTaskLoRAComposer(nn.Module):
             (batch_size, seq_len, hidden_dim) composed trajectory perturbation delta
         """
         batch_size = hidden_states.size(0)
+        device = hidden_states.device
         
         # Encode instruction (shared encoder)
         instruction_emb = self.instruction_encoder(
@@ -630,21 +635,27 @@ class MultiTaskLoRAComposer(nn.Module):
             attention_mask=instruction_mask,
         )  # (batch_size, instruction_dim)
         
-        # Get router weights: w = softmax(Router(Enc(c)))
-        task_weights = self.router.get_task_weights(instruction_emb)  # (batch_size, num_tasks)
+        # Resolve task weights by composition mode
+        mode = getattr(self, "composition_mode", "router")
+        if mode == "uniform":
+            # Average: w_j = 1/M
+            task_weights = torch.ones(batch_size, self.num_tasks, device=device) / self.num_tasks
+        elif mode == "task_arithmetic":
+            # Task arithmetic: sum of deltas (weight 1 per task)
+            task_weights = torch.ones(batch_size, self.num_tasks, device=device)
+        else:
+            # Default: router
+            task_weights = self.router.get_task_weights(instruction_emb)  # (batch_size, num_tasks)
         
         # Initialize composed perturbation
         composed_delta = torch.zeros_like(hidden_states)
         
-        # For each task, compute perturbation and weight by router output
+        # For each task, compute perturbation and weight
         for task_name, task_idx in self.task_to_idx.items():
             if task_name not in self.task_modules:
-                # Skip tasks that haven't been loaded
                 continue
             
             lora_module = self.task_modules[task_name]
-            
-            # Compute task-specific perturbation
             task_delta = lora_module(
                 hidden_states=hidden_states,
                 timesteps=timesteps,
@@ -652,9 +663,8 @@ class MultiTaskLoRAComposer(nn.Module):
                 instruction_mask=instruction_mask,
             )  # (batch_size, seq_len, hidden_dim)
             
-            # Weight by router output: w_j * δ_j
             weight = task_weights[:, task_idx]  # (batch_size,)
-            weight = weight[:, None, None]  # (batch_size, 1, 1) for broadcasting
+            weight = weight[:, None, None]  # (batch_size, 1, 1)
             composed_delta = composed_delta + weight * task_delta
         
         return composed_delta

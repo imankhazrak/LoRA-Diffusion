@@ -308,11 +308,137 @@ class XSumLoader:
         return examples
 
 
+class MRPCLoader:
+    """Loader for MRPC paraphrase classification (sentence1, sentence2 -> label)."""
+
+    @staticmethod
+    def load(
+        split: str,
+        cache_dir: str,
+        task_config: Dict[str, Any],
+        max_samples: Optional[int] = None,
+    ) -> List[TaskExample]:
+        """Load MRPC dataset."""
+        import time
+        max_retries = 3
+        retry_delay = 5
+
+        for attempt in range(max_retries):
+            try:
+                dataset = load_dataset(
+                    task_config["dataset"],
+                    task_config.get("dataset_config"),
+                    split=task_config["split_names"][split],
+                    cache_dir=cache_dir,
+                )
+                break
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"Failed to load MRPC (attempt {attempt + 1}/{max_retries}): {e}")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                else:
+                    raise
+
+        if max_samples:
+            dataset = dataset.select(range(min(max_samples, len(dataset))))
+
+        examples = []
+        label_names = task_config.get("label_names", ["not_equivalent", "equivalent"])
+        instruction_template = task_config.get(
+            "instruction_template",
+            "Determine if the following two sentences are paraphrases. Sentence 1: {sentence1} Sentence 2: {sentence2} Answer (equivalent or not_equivalent):"
+        )
+
+        for item in dataset:
+            sentence1 = item.get("sentence1", "")
+            sentence2 = item.get("sentence2", "")
+            label_id = item.get(task_config["label_column"], item.get("label", 0))
+            if isinstance(label_id, str):
+                label_id = label_names.index(label_id) if label_id in label_names else int(label_id)
+            label_text = label_names[label_id] if label_id < len(label_names) else str(label_id)
+            instruction = instruction_template.format(sentence1=sentence1, sentence2=sentence2)
+            input_text = f"{sentence1} [SEP] {sentence2}"
+            examples.append(TaskExample(
+                input_text=input_text,
+                target_text=label_text,
+                instruction=instruction,
+                metadata={"label": label_id},
+            ))
+
+        logger.info(f"Loaded {len(examples)} MRPC {split} examples")
+        return examples
+
+
+class QNLILoader:
+    """Loader for QNLI (question-sentence NLI): question, sentence -> label."""
+
+    @staticmethod
+    def load(
+        split: str,
+        cache_dir: str,
+        task_config: Dict[str, Any],
+        max_samples: Optional[int] = None,
+    ) -> List[TaskExample]:
+        """Load QNLI dataset."""
+        import time
+        max_retries = 3
+        retry_delay = 5
+
+        for attempt in range(max_retries):
+            try:
+                dataset = load_dataset(
+                    task_config["dataset"],
+                    task_config.get("dataset_config"),
+                    split=task_config["split_names"][split],
+                    cache_dir=cache_dir,
+                )
+                break
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"Failed to load QNLI (attempt {attempt + 1}/{max_retries}): {e}")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                else:
+                    raise
+
+        if max_samples:
+            dataset = dataset.select(range(min(max_samples, len(dataset))))
+
+        examples = []
+        label_names = task_config.get("label_names", ["entailment", "not_entailment"])
+        instruction_template = task_config.get(
+            "instruction_template",
+            "Does the sentence answer the question? Question: {question} Sentence: {sentence} Answer (entailment or not_entailment):"
+        )
+
+        for item in dataset:
+            question = item.get("question", item.get("question", ""))
+            sentence = item.get("sentence", item.get("sentence", ""))
+            label_id = item.get(task_config["label_column"], item.get("label", 0))
+            if isinstance(label_id, str):
+                label_id = label_names.index(label_id) if label_id in label_names else int(label_id)
+            label_text = label_names[label_id] if label_id < len(label_names) else str(label_id)
+            instruction = instruction_template.format(question=question, sentence=sentence)
+            input_text = f"{question} [SEP] {sentence}"
+            examples.append(TaskExample(
+                input_text=input_text,
+                target_text=label_text,
+                instruction=instruction,
+                metadata={"label": label_id},
+            ))
+
+        logger.info(f"Loaded {len(examples)} QNLI {split} examples")
+        return examples
+
+
 # Registry of task loaders
 TASK_LOADERS = {
     "sst2": SST2Loader,
     "squad": SQuADLoader,
     "xsum": XSumLoader,
+    "mrpc": MRPCLoader,
+    "qnli": QNLILoader,
 }
 
 

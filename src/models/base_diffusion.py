@@ -577,7 +577,8 @@ class MaskedDiffusionTransformer(nn.Module):
         instruction_mask: torch.Tensor,
         composer: "MultiTaskLoRAComposer",
         device: str = "cuda",
-    ) -> torch.Tensor:
+        return_final_hidden: bool = False,
+    ):
         """
         Sample from the model using multi-task LoRA composition.
         
@@ -594,9 +595,11 @@ class MaskedDiffusionTransformer(nn.Module):
             instruction_mask: (batch_size, inst_len) instruction attention mask
             composer: MultiTaskLoRAComposer instance
             device: Device to run on
+            return_final_hidden: If True, also return final-step mean-pooled hidden (batch_size, hidden_dim)
             
         Returns:
-            (batch_size, seq_len) generated token IDs
+            xt: (batch_size, seq_len) generated token IDs
+            final_hidden: If return_final_hidden, (batch_size, hidden_dim); else None
         """
         # Start from pure noise (all masked)
         xt = torch.full(
@@ -609,6 +612,7 @@ class MaskedDiffusionTransformer(nn.Module):
         # Move instruction tensors to device
         instruction_ids = instruction_ids.to(device)
         instruction_mask = instruction_mask.to(device)
+        final_hidden = None
         
         # Reverse diffusion
         for t in reversed(range(self.num_diffusion_steps)):
@@ -631,6 +635,9 @@ class MaskedDiffusionTransformer(nn.Module):
             
             # Apply perturbation: h_t' = h_t + δ
             perturbed_hidden = hidden_states + delta
+            
+            if return_final_hidden and t == 1:
+                final_hidden = perturbed_hidden.mean(dim=1)  # (batch_size, hidden_dim)
             
             # Get logits from perturbed hidden states
             logits = self.output_head(perturbed_hidden)
@@ -656,6 +663,8 @@ class MaskedDiffusionTransformer(nn.Module):
             else:
                 xt = x0_pred
         
+        if return_final_hidden:
+            return xt, final_hidden
         return xt
     
     def get_representation(

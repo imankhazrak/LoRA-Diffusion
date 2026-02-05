@@ -414,7 +414,7 @@ class DiffusionTrainer:
     
     def save_checkpoint(self, name: str):
         """Save model checkpoint."""
-        checkpoint_path = self.checkpoint_dir / name
+        checkpoint_path = (self.checkpoint_dir / name).resolve()
         checkpoint_path.mkdir(parents=True, exist_ok=True)
         
         # Save config
@@ -427,10 +427,20 @@ class DiffusionTrainer:
             model_path = checkpoint_path / "model.pt"
             torch.save(self.model.state_dict(), model_path)
         
-        # Save LoRA module
+        # Save LoRA module (to final_model/ and to run root for downstream scripts)
         if self.lora_module:
             lora_path = checkpoint_path / "lora_module.pt"
             torch.save(self.lora_module.state_dict(), lora_path)
+            if not lora_path.exists() or lora_path.stat().st_size == 0:
+                raise RuntimeError(
+                    f"Failed to save lora_module.pt at {lora_path} (missing or empty). "
+                    "Check disk space and permissions."
+                )
+            # Also save to run root so composer/evaluate find it when given the run dir
+            run_root_lora = self.checkpoint_dir / "lora_module.pt"
+            if run_root_lora.resolve() != lora_path.resolve():
+                torch.save(self.lora_module.state_dict(), run_root_lora)
+                logger.info(f"Saved lora_module.pt to run root {run_root_lora}")
         
         # Save router
         if self.router:
