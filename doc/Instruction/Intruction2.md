@@ -19,7 +19,7 @@ METRICS (IMPORTANT)
      - map prediction to labels using a fixed verbalizer/decision rule.
    - For SST-2: label verbalizer {“positive”, “negative”} or {“yes”, “no”} (pick one and keep constant).
    - For QNLI: verbalizer {“entailment”, “not_entailment”}.
-   - For MRPC: verbalizer {“equivalent”, “not_equivalent”} OR {“paraphrase”, “not_paraphrase”}. Keep constant.
+   - For MRPC: verbalizer {“paraphrase”, “not_paraphrase”} (or {“equivalent”, “not_equivalent”}). Keep constant.
    - Report Accuracy for SST-2/QNLI; for MRPC report Accuracy + F1 (standard GLUE), derived from the head-free rule.
 3) Efficiency metrics (measured consistently):
    - trainable parameter count
@@ -92,20 +92,35 @@ CODE CHANGES YOU MUST DO
    - Provide a script that prints or writes all commands for:
      - single-task matrix
      - multi-task matrix
-   - If this repo uses SLURM, create slurm templates:
-     - run_single_task.slurm
-     - run_multitask.slurm
-   - Each job should run exactly one (task, method, seed) to avoid mixing logs.
+7) CONSISTENCY FIXES (REVIEWER CALLED OUT TABLE CONTRADICTIONS)
+   - Remove/avoid mixing multiple metrics in the same “accuracy” column.
+   - Every table row must explicitly state which metric it is.
+   - Ensure token accuracy numbers cannot be confused with GLUE accuracy numbers.
+   - Eliminate placeholders. If something is not measured, do not include it.
 
-CONSISTENCY FIXES (REVIEWER CALLED OUT TABLE CONTRADICTIONS)
-- Remove/avoid mixing multiple metrics in the same “accuracy” column.
-- Every table row must explicitly state which metric it is.
-- Ensure token accuracy numbers cannot be confused with GLUE accuracy numbers.
-- Eliminate placeholders. If something is not measured, do not include it.
+OSC / SLURM REQUIREMENTS (ADD THIS)
+You must create TWO OSC SLURM templates and a launcher that generates job submissions:
+A) slurm_single_task.slurm
+   - Runs exactly one (task, method, seed, mode) experiment per job.
+B) slurm_multitask.slurm
+   - Runs exactly one (multitask setting, method, seed, mode) per job.
+
+For speed, use as much GPU compute as OSC allows:
+- Use 1 GPU per job, and set CPU cores to support data loading efficiently (e.g., 8–16 cores).
+- Use multiple jobs in parallel across seeds/methods.
+- Use GPU type A100 if available on OSC.
+- Use `--cpus-per-task` and `--mem` appropriately so dataloaders do not bottleneck.
+- Enable mixed precision (fp16/bf16) if supported and already stable in repo.
+- Add environment setup section in the SLURM scripts (conda activate, module load, etc.).
+- Each SLURM job must write logs to a unique file path that includes task/method/seed.
+
+Deliver a submit script:
+- scripts/submit_all.sh that submits all single-task jobs first, then multi-task jobs.
+- Make it easy to throttle concurrency (e.g., user can comment out parts or set a max parallel cap).
 
 DELIVERABLES (WHAT YOU OUTPUT TO ME)
 A) A short list of files you modified/added with paths.
-B) The exact commands to run:
+B) The exact commands to run locally (if possible) AND the exact `sbatch` commands for OSC:
    - all single-task jobs
    - all multi-task jobs
 C) A quick “sanity checklist” showing:
