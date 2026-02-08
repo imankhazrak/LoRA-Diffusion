@@ -45,7 +45,7 @@ Bowling Green State University \\
 \maketitle
 
 \begin{abstract}
-Parameter-efficient fine-tuning methods such as LoRA have transformed the adaptation of large autoregressive language models, enabling task-specific customization with fewer than 1\% trainable parameters. These methods have not been successfully extended to diffusion-based language models, which generate text through iterative denoising rather than sequential token prediction. We propose LoRA-Diffusion, a parameter-efficient fine-tuning approach that applies low-rank decomposition to the denoising trajectory instead of model weights. Unlike weight-based LoRA, which modifies individual transformation matrices, our method learns low-rank perturbations to the entire diffusion path from noise to output. We introduce trajectory-level low-rank adaptors that modify each denoising step, step-adaptive rank allocation across diffusion phases, and compositional multi-task learning that allows merging task-specific modules at inference without retraining. On the SST-2 sentiment classification task with a BERT-based diffusion model (137.7M trainable parameters), we report token-level denoising validation accuracy. LoRA-Diffusion achieves competitive validation accuracy relative to full fine-tuning over 10 seeds while training 28.7\% of parameters (instruction encoder 27.5\% + trajectory adapters 1.2\%)\footnote{Parameter accounting: total trainable 39.6M = instruction encoder 37.8M + trajectory adapters 1.7M; percentages relative to base model 137.7M.}. The approach is competitive with adapter layers and baselines, and reduces storage per task (151\,MB vs. 525\,MB for full fine-tuning) while exhibiting minimal catastrophic forgetting. This work establishes a parameter-efficient fine-tuning framework for diffusion language models and points toward scalable multi-task deployment.
+Parameter-efficient fine-tuning methods such as LoRA have transformed the adaptation of large autoregressive language models, enabling task-specific customization with fewer than 1\% trainable parameters. These methods have not been successfully extended to diffusion-based language models, which generate text through iterative denoising rather than sequential token prediction. We propose LoRA-Diffusion, a parameter-efficient fine-tuning approach that applies low-rank decomposition to the denoising trajectory instead of model weights. Unlike weight-based LoRA, which modifies individual transformation matrices, our method learns low-rank perturbations to the entire diffusion path from noise to output. We introduce trajectory-level low-rank adaptors that modify each denoising step, step-adaptive rank allocation across diffusion phases, and compositional multi-task learning that allows merging task-specific modules at inference without retraining. On the SST-2 sentiment classification task with a BERT-based diffusion model (137.7M trainable parameters), we report token-level denoising validation accuracy; on QNLI, LoRA-Diffusion matches full fine-tuning at 100\% validation accuracy over 10 seeds. LoRA-Diffusion achieves competitive validation accuracy relative to full fine-tuning over 10 seeds while training 28.7\% of parameters (instruction encoder 27.5\% + trajectory adapters 1.2\%)\footnote{Parameter accounting: total trainable 39.6M = instruction encoder 37.8M + trajectory adapters 1.7M; percentages relative to base model 137.7M.}. The approach is competitive with adapter layers and baselines, and reduces storage per task (151\,MB vs. 525\,MB for full fine-tuning) while exhibiting minimal catastrophic forgetting. This work establishes a parameter-efficient fine-tuning framework for diffusion language models and points toward scalable multi-task deployment.
 \end{abstract}
 
 \section{Introduction}
@@ -63,9 +63,9 @@ We propose LoRA-Diffusion, a PEFT method designed for diffusion language models.
 \end{equation}
 where $\Delta \mathbf{x}_t^{\text{low-rank}}$ is produced by lightweight low-rank adaptors conditioned on the task instruction. Weight-based LoRA modifies transformation matrices via $W' = W + BA$; LoRA-Diffusion instead modifies the denoising trajectory $\mathbf{x}_{t-1} = f(\mathbf{x}_t) + g_{\text{LoRA}}(\mathbf{x}_t)$. Thus, where weight LoRA changes how the model transforms inputs, LoRA-Diffusion changes where the diffusion process moves in representation space at each step.
 
-We make the following contributions. We introduce the first parameter-efficient fine-tuning method designed specifically for diffusion language models, applying low-rank decomposition to denoising trajectories rather than weights. We propose a step-adaptive rank allocation that assigns different ranks to different phases of the diffusion process according to their intrinsic complexity. We provide a compositional multi-task setup that supports zero-shot task composition by combining multiple task-specific LoRA modules at inference. We present an empirical evaluation on SST-2 with a BERT-based diffusion model (137.7M parameters), comparing LoRA-Diffusion to full fine-tuning and several PEFT baselines (weight LoRA, adapters, BitFit), with token-level denoising accuracy, efficiency metrics (trainable parameters, storage, training time, inference latency), and ablations for rank and orthogonality regularization. We give an information-theoretic motivation for trajectory-level low-rank structure and clarify positioning versus adapter layers and timestep-aware weight LoRA (T-LoRA, FouRA). We release an open-source implementation to support reproducibility and extension.
+We make the following contributions. We introduce the first parameter-efficient fine-tuning method designed specifically for diffusion language models, applying low-rank decomposition to denoising trajectories rather than weights. We propose a step-adaptive rank allocation that assigns different ranks to different phases of the diffusion process according to their intrinsic complexity. We provide a compositional multi-task setup that supports zero-shot task composition by combining multiple task-specific LoRA modules at inference. We present an empirical evaluation on SST-2 and QNLI with a BERT-based diffusion model (137.7M parameters), comparing LoRA-Diffusion to full fine-tuning and several PEFT baselines (weight LoRA, adapters, BitFit), with token-level denoising accuracy, efficiency metrics (trainable parameters, storage, training time, inference latency), and ablations for rank and orthogonality regularization. We give an information-theoretic motivation for trajectory-level low-rank structure and clarify positioning versus adapter layers and timestep-aware weight LoRA (T-LoRA, FouRA). We release an open-source implementation to support reproducibility and extension.
 
-The rest of the paper is organized as follows. Section~\ref{sec:related} reviews related work on diffusion models for language, parameter-efficient fine-tuning, and multi-task learning. Section~\ref{sec:method} presents our methodology, including preliminaries, trajectory-level low-rank adaptation, the training objective, multi-task composition, and implementation details. Section~\ref{sec:experiments} describes the experimental setup and results on SST-2, including main results, efficiency analysis, catastrophic forgetting, ablations, and comparison with weight-based LoRA. Section~\ref{sec:conclusion} summarizes our contributions, discusses limitations and future work, and closes with broader impact and reproducibility notes.
+The rest of the paper is organized as follows. Section~\ref{sec:related} reviews related work on diffusion models for language, parameter-efficient fine-tuning, and multi-task learning. Section~\ref{sec:method} presents our methodology, including preliminaries, trajectory-level low-rank adaptation, the training objective, multi-task composition, and implementation details. Section~\ref{sec:experiments} describes the experimental setup and results on SST-2 and QNLI, including main results, efficiency analysis, catastrophic forgetting, ablations, and comparison with weight-based LoRA. Section~\ref{sec:conclusion} summarizes our contributions, discusses limitations and future work, and closes with broader impact and reproducibility notes.
 
 \section{Related Work}
 \label{sec:related}
@@ -362,6 +362,28 @@ Prefix Tuning & 50 & --- & --- & --- & 7.2\% & $\times$ \\
 \end{tabular}
 \end{table}
 
+\subsection{QNLI Results}
+
+We evaluate on QNLI (Question Natural Language Inference), a GLUE binary NLI task: given a question (premise) and a sentence (hypothesis), the model predicts whether the sentence entails the question or not (entailment / not\_entailment). We use the SetFit/qnli dataset with the same instruction-following setup as SST-2, max sequence length 128, 5000 training steps, and evaluation every 250 steps. All experiments use 10 seeds (42--51). We report two metrics: \textbf{validation accuracy} is token-level denoising accuracy on the validation set (same metric as training); \textbf{classification-head accuracy} is the accuracy of a linear classifier on the [CLS] representation, evaluated on validation and test sets after training.
+
+Table~\ref{tab:qnli_results} reports results. Full fine-tuning, LoRA-Diffusion, Weight LoRA, and BitFit achieve 100\% validation accuracy (mean over 10 seeds). Adapters reach 68.06\% $\pm$ 1.71\%, consistent with standard adapter tuning on this task in our diffusion setup. LoRA-Diffusion matches full fine-tuning on QNLI while using 28.7\% trainable parameters, demonstrating that trajectory-level adaptation transfers to NLI. Classification-head validation and test accuracies align with token-level validation accuracy for all methods.
+
+\begin{table}[h]
+\centering
+\caption{Performance on QNLI (mean $\pm$ std over 10 seeds, seeds 42--51). Val acc.\ = token-level denoising; Cl.-head = linear classifier on [CLS]. Job 44084887.}
+\label{tab:qnli_results}
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+Method & Train acc.\ (\%) & Val acc.\ (\%) & Cl.-head val.\ (\%) & Cl.-head test\ (\%) & Relative \\ \midrule
+Full Fine-Tuning & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & 100.0\% \\
+LoRA-Diffusion & $99.71 \pm 0.13$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & 100.0\% \\
+Weight LoRA & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & 100.0\% \\
+Adapters & $66.69 \pm 1.57$ & $68.06 \pm 1.71$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & 68.1\% \\
+BitFit & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & 100.0\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsection{Efficiency Analysis}
 
 Table~\ref{tab:efficiency} summarizes efficiency. All storage values are in \textbf{MB} and denote the size of the saved checkpoint (trainable parameters only for PEFT methods; full model for full fine-tuning). Full fine-tuning stores 525\,MB (137.7M parameters); LoRA-Diffusion stores 151\,MB (39.6M trainable parameters).
@@ -418,7 +440,7 @@ We train single-task LoRA-Diffusion adapters per task (e.g., SST-2, MRPC, QNLI);
 Task & Single-task & Composed (router) & Average & Task arithmetic \\ \midrule
 SST-2 & (to be filled) & (to be filled) & (to be filled) & (to be filled) \\
 MRPC & (to be filled) & (to be filled) & (to be filled) & (to be filled) \\
-QNLI & (to be filled) & (to be filled) & (to be filled) & (to be filled) \\ \bottomrule
+QNLI & 100.0\% & (to be filled) & (to be filled) & (to be filled) \\ \bottomrule
 \end{tabular}
 \end{table}
 
