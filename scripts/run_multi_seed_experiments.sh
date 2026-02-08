@@ -42,8 +42,8 @@ echo ""
 echo "Training step finished."
 echo ""
 
-# Step 2: Run evaluation on all checkpoints (token-level accuracy, same metric as training; no generation)
-echo "Step 2: Running evaluation (token-level, same as training)..."
+# Step 2: Run evaluation (for classification: token-level + generation so we report task accuracy)
+echo "Step 2: Running evaluation..."
 echo "=========================================="
 
 for task in $TASKS; do
@@ -52,10 +52,16 @@ for task in $TASKS; do
         checkpoint_dir="$OUTPUT_DIR/${task}_${method}_seed${seed}"
         if [ -d "$checkpoint_dir" ]; then
             echo "Evaluating: ${task}_${method}_seed${seed}"
+            # For classification (sst2, qnli, etc.) pass --run_generation so eval_results.json has generation_accuracy (used as val_accuracy)
+            case "$task" in
+              sst2|qnli|agnews|mrpc|cola|rte|mnli) EXTRA_EVAL_ARGS="--run_generation" ;;
+              *) EXTRA_EVAL_ARGS="" ;;
+            esac
             python scripts/evaluate.py \
               --checkpoint "$checkpoint_dir" \
               --task "$task" \
               --split validation \
+              $EXTRA_EVAL_ARGS \
               --output_file "$checkpoint_dir/eval_results.json" || true
         else
             echo "Warning: Checkpoint not found: $checkpoint_dir"
@@ -65,7 +71,7 @@ for task in $TASKS; do
 done
 
 echo ""
-echo "Token-level evaluation complete!"
+echo "Evaluation complete!"
 echo ""
 
 # Step 3: Run classification head evaluation (optional; not used for main tables)

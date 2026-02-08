@@ -109,8 +109,13 @@ def find_experiment_output(
     return None
 
 
-def extract_metrics_from_output(output_dir: Path) -> Optional[Dict[str, Any]]:
-    """Extract metrics from experiment output directory."""
+# Tasks where we report generation-based (task) accuracy as val_accuracy when available.
+# Token-level denoising accuracy can be ~100% even when task accuracy is lower; for GLUE-style reporting we use generation.
+CLASSIFICATION_TASKS = frozenset({"sst2", "qnli", "agnews", "mrpc", "cola", "rte", "mnli"})
+
+def extract_metrics_from_output(output_dir: Path, task: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Extract metrics from experiment output directory.
+    For classification tasks, val_accuracy uses generation_accuracy when present (standard task metric)."""
     metrics = {}
     
     # Training summary
@@ -135,15 +140,20 @@ def extract_metrics_from_output(output_dir: Path) -> Optional[Dict[str, Any]]:
                 metrics["final_loss"] = final.get("loss")
                 metrics["final_train_acc"] = final.get("accuracy")
     
-    # Evaluation results: val_accuracy = token-level only (same metric as training). Never use generation_accuracy.
+    # Evaluation results: for classification tasks use generation_accuracy as val_accuracy when present (GLUE-style task metric).
     eval_file = output_dir / "eval_results.json"
     if eval_file.exists():
         with open(eval_file, "r") as f:
             eval_data = json.load(f)
             eval_metrics = eval_data.get("metrics", {})
-            # Only "accuracy" is token-level; generation_accuracy is never used for val_accuracy
-            metrics["val_accuracy"] = eval_metrics.get("accuracy")
-            metrics["val_generation_accuracy"] = eval_metrics.get("generation_accuracy")  # for reference only
+            gen_acc = eval_metrics.get("generation_accuracy")
+            token_acc = eval_metrics.get("accuracy")
+            if task and task in CLASSIFICATION_TASKS and gen_acc is not None:
+                metrics["val_accuracy"] = gen_acc  # generation-based (task) accuracy
+                metrics["val_token_accuracy"] = token_acc  # token-level denoising (for reference)
+            else:
+                metrics["val_accuracy"] = token_acc  # token-level (default / non-classification)
+            metrics["val_generation_accuracy"] = gen_acc  # for reference
             metrics["val_f1"] = eval_metrics.get("f1")
             metrics["val_loss"] = eval_metrics.get("loss")
     
@@ -171,8 +181,6 @@ def extract_metrics_from_output(output_dir: Path) -> Optional[Dict[str, Any]]:
                 metrics["classification_head_val_acc"] = ch_data.get("classification_head_val_acc")
                 metrics["classification_head_test_acc"] = ch_data.get("classification_head_test_acc")
             break
-
-    # Val accuracy = token-level denoising only (same metric as training). Do not overwrite with classification-head or generation.
 
     return metrics if metrics else None
 
@@ -203,7 +211,7 @@ def collect_multi_seed_results(
                 print(f"Warning: Missing output for {task}_{method}_seed{seed}")
                 continue
 
-            metrics = extract_metrics_from_output(output_dir)
+            metrics = extract_metrics_from_output(output_dir, task=task)
 
             if metrics is None:
                 missing_runs.append((method, seed))
