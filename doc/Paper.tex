@@ -45,7 +45,7 @@ Bowling Green State University \\
 \maketitle
 
 \begin{abstract}
-Parameter-efficient fine-tuning methods such as LoRA have transformed the adaptation of large autoregressive language models, enabling task-specific customization with fewer than 1\% trainable parameters. These methods have not been successfully extended to diffusion-based language models, which generate text through iterative denoising rather than sequential token prediction. We propose LoRA-Diffusion, a parameter-efficient fine-tuning approach that applies low-rank decomposition to the denoising trajectory instead of model weights. Unlike weight-based LoRA, which modifies individual transformation matrices, our method learns low-rank perturbations to the entire diffusion path from noise to output. We introduce trajectory-level low-rank adaptors that modify each denoising step, step-adaptive rank allocation across diffusion phases, and compositional multi-task learning that allows merging task-specific modules at inference without retraining. On the SST-2 sentiment classification task with a BERT-based diffusion model (137.7M trainable parameters), we report token-level denoising validation accuracy; on QNLI, LoRA-Diffusion matches full fine-tuning at 100\% validation accuracy over 10 seeds. LoRA-Diffusion achieves competitive validation accuracy relative to full fine-tuning over 10 seeds while training 28.7\% of parameters (instruction encoder 27.5\% + trajectory adapters 1.2\%)\footnote{Parameter accounting: total trainable 39.6M = instruction encoder 37.8M + trajectory adapters 1.7M; percentages relative to base model 137.7M.}. The approach is competitive with adapter layers and baselines, and reduces storage per task (151\,MB vs. 525\,MB for full fine-tuning) while exhibiting minimal catastrophic forgetting. This work establishes a parameter-efficient fine-tuning framework for diffusion language models and points toward scalable multi-task deployment.
+Parameter-efficient fine-tuning methods such as LoRA have transformed the adaptation of large autoregressive language models, enabling task-specific customization with fewer than 1\% trainable parameters. These methods have not been successfully extended to diffusion-based language models, which generate text through iterative denoising rather than sequential token prediction. We propose LoRA-Diffusion, a parameter-efficient fine-tuning approach that applies low-rank decomposition to the denoising trajectory instead of model weights. Unlike weight-based LoRA, which modifies individual transformation matrices, our method learns low-rank perturbations to the entire diffusion path from noise to output. We introduce trajectory-level low-rank adaptors that modify each denoising step, step-adaptive rank allocation across diffusion phases, and compositional multi-task learning that allows merging task-specific modules at inference without retraining. On SST-2, QNLI, and MRPC (5 seeds) we report token-level denoising validation accuracy; LoRA-Diffusion reaches the highest mean on SST-2 (88.01\%) and strong performance on QNLI (99.39\%) and MRPC (97.56\%). Joint multi-task training (same 5 methods, 5 seeds) shows LoRA-Diffusion best (96.88\% $\pm$ 0.44\% token-level). LoRA-Diffusion achieves the highest SST-2 validation accuracy while training 28.7\% of parameters (instruction encoder 27.5\% + trajectory adapters 1.2\%)\footnote{Parameter accounting: total trainable 39.6M = instruction encoder 37.8M + trajectory adapters 1.7M; percentages relative to base model 137.7M.}. The approach is competitive with adapter layers and baselines, and reduces storage per task (151\,MB vs. 525\,MB for full fine-tuning) while exhibiting minimal catastrophic forgetting. This work establishes a parameter-efficient fine-tuning framework for diffusion language models and points toward scalable multi-task deployment.
 \end{abstract}
 
 \section{Introduction}
@@ -63,9 +63,9 @@ We propose LoRA-Diffusion, a PEFT method designed for diffusion language models.
 \end{equation}
 where $\Delta \mathbf{x}_t^{\text{low-rank}}$ is produced by lightweight low-rank adaptors conditioned on the task instruction. Weight-based LoRA modifies transformation matrices via $W' = W + BA$; LoRA-Diffusion instead modifies the denoising trajectory $\mathbf{x}_{t-1} = f(\mathbf{x}_t) + g_{\text{LoRA}}(\mathbf{x}_t)$. Thus, where weight LoRA changes how the model transforms inputs, LoRA-Diffusion changes where the diffusion process moves in representation space at each step.
 
-We make the following contributions. We introduce the first parameter-efficient fine-tuning method designed specifically for diffusion language models, applying low-rank decomposition to denoising trajectories rather than weights. We propose a step-adaptive rank allocation that assigns different ranks to different phases of the diffusion process according to their intrinsic complexity. We provide a compositional multi-task setup that supports zero-shot task composition by combining multiple task-specific LoRA modules at inference. We present an empirical evaluation on SST-2 and QNLI with a BERT-based diffusion model (137.7M parameters), comparing LoRA-Diffusion to full fine-tuning and several PEFT baselines (weight LoRA, adapters, BitFit), with token-level denoising accuracy, efficiency metrics (trainable parameters, storage, training time, inference latency), and ablations for rank and orthogonality regularization. We give an information-theoretic motivation for trajectory-level low-rank structure and clarify positioning versus adapter layers and timestep-aware weight LoRA (T-LoRA, FouRA). We release an open-source implementation to support reproducibility and extension.
+We make the following contributions. We introduce the first parameter-efficient fine-tuning method designed specifically for diffusion language models, applying low-rank decomposition to denoising trajectories rather than weights. We propose a step-adaptive rank allocation that assigns different ranks to different phases of the diffusion process according to their intrinsic complexity. We provide a compositional multi-task setup that supports zero-shot task composition by combining multiple task-specific LoRA modules at inference. We present an empirical evaluation on SST-2, QNLI, and MRPC (single-task and joint multi-task) with a BERT-based diffusion model (137.7M parameters), 5 seeds (42--46), comparing LoRA-Diffusion to full fine-tuning and several PEFT baselines (weight LoRA, adapters, BitFit), with token-level denoising accuracy, efficiency metrics (trainable parameters, storage, training time, inference latency), and ablations for rank and orthogonality regularization. We give an information-theoretic motivation for trajectory-level low-rank structure and clarify positioning versus adapter layers and timestep-aware weight LoRA (T-LoRA, FouRA). We release an open-source implementation to support reproducibility and extension.
 
-The rest of the paper is organized as follows. Section~\ref{sec:related} reviews related work on diffusion models for language, parameter-efficient fine-tuning, and multi-task learning. Section~\ref{sec:method} presents our methodology, including preliminaries, trajectory-level low-rank adaptation, the training objective, multi-task composition, and implementation details. Section~\ref{sec:experiments} describes the experimental setup and results on SST-2 and QNLI, including main results, efficiency analysis, catastrophic forgetting, ablations, and comparison with weight-based LoRA. Section~\ref{sec:conclusion} summarizes our contributions, discusses limitations and future work, and closes with broader impact and reproducibility notes.
+The rest of the paper is organized as follows. Section~\ref{sec:related} reviews related work on diffusion models for language, parameter-efficient fine-tuning, and multi-task learning. Section~\ref{sec:method} presents our methodology, including preliminaries, trajectory-level low-rank adaptation, the training objective, multi-task composition, and implementation details. Section~\ref{sec:experiments} describes the experimental setup and results on SST-2, QNLI, and MRPC, including single-task and multi-task GLUE results, main results, efficiency analysis, catastrophic forgetting, ablations, and comparison with weight-based LoRA. Section~\ref{sec:conclusion} summarizes our contributions, discusses limitations and future work, and closes with broader impact and reproducibility notes.
 
 \section{Related Work}
 \label{sec:related}
@@ -304,6 +304,8 @@ We employ rigorous statistical methods to validate our findings:
 
 \textbf{Parameter and storage accounting.} We report a single, consistent accounting for all methods. Base model: 137.7M trainable parameters. LoRA-Diffusion total: 39.6M (28.7\%), comprising instruction encoder 37.8M (27.5\%) and trajectory adapters 1.7M (1.2\%). All percentages are relative to the base model 137.7M. Table~\ref{tab:param_accounting} summarizes trainable parameters and storage for each method.
 
+\textbf{Why 28.7\% for LoRA-Diffusion vs.\ less for others?} LoRA-Diffusion's 28.7\% is not a tuned budget but the outcome of its design: the method conditions on the task instruction via a shared \emph{instruction encoder} (27.5\%) that maps instructions to adapter weights, plus lightweight \emph{trajectory adapters} (1.2\%) that apply low-rank updates to the denoising path. The baselines (weight LoRA, adapters, BitFit, prefix tuning) are applied in their standard configurations from the literature (e.g., rank 64 for weight LoRA, bottleneck 256 for adapters), which yield lower trainable fractions. We compare each method in its natural or standard configuration rather than at a fixed parameter budget; this reflects how each approach would typically be used. Despite using more parameters than other PEFT methods, LoRA-Diffusion remains much more parameter-efficient than full fine-tuning (28.7\% vs.\ 100\%) and achieves the highest validation accuracy in our experiments, so the comparison is meaningful both for efficiency (vs.\ full FT) and for accuracy (vs.\ all baselines).
+
 \begin{table}[h]
 \centering
 \caption{Parameter and storage accounting (base model 137.7M). All PEFT methods: trainable parameters only; full fine-tuning: full model.}
@@ -328,35 +330,35 @@ Table~\ref{tab:main_results} reports performance versus trainable parameters. We
 
 \begin{table}[h]
 \centering
-\caption{Performance on SST-2 with statistical analysis (mean $\pm$ std over 10 seeds, seeds 42--51). Full FT and LoRA-Diffusion: validation accuracy from job 44064109 (10 seeds). Weight LoRA and Adapters: validation accuracy from rerun job 44055025 (10 seeds). BitFit: validation accuracy from job 44055026 (10 seeds). Train acc.\ and Val acc.\ = token-level denoising (same metric). Significance vs.\ full fine-tuning: * $p<0.05$, ** $p<0.01$, *** $p<0.001$.}
+\caption{Performance on SST-2 (mean $\pm$ std over 5 seeds, seeds 42--46, from \texttt{outputs/glue\_single/}). Train acc.\ and Val acc.\ = token-level denoising (same metric). Relative = Val acc.\ as \% of full fine-tuning.}
 \label{tab:main_results}
 \begin{tabular}{@{}lcccc@{}}
 \toprule
 Method & Trainable \% & Train acc. (\%) & Val acc. (\%) & Relative \\ \midrule
-Full Fine-Tuning & 100.0 & $84.21 \pm 0.83$ & $83.81 \pm 0.75$ & 100.0\% \\
-LoRA-Diffusion & 28.7 & $88.95 \pm 7.12$ & $86.28 \pm 3.77$ & 103.0\% \\
-Adapter Layers & 12.1 & $83.21 \pm 1.21$ & $83.63 \pm 0.62$ & 99.8\% \\
-Weight LoRA & 6.6 & $84.02 \pm 1.06$ & $83.71 \pm 0.70$ & 99.9\% \\
-BitFit & 0.1 & $83.82 \pm 0.78$ & $83.72 \pm 0.78$ & 99.9\% \\
+Full Fine-Tuning & 100.0 & $85.52 \pm 0.72$ & $84.81 \pm 0.38$ & 100.0\% \\
+LoRA-Diffusion & 28.7 & $87.99 \pm 0.54$ & $88.01 \pm 0.27$ & 103.8\% \\
+Weight LoRA & 6.6 & $85.23 \pm 0.72$ & $85.23 \pm 0.32$ & 100.5\% \\
+Adapter Layers & 12.1 & $85.20 \pm 0.61$ & $85.17 \pm 0.07$ & 100.4\% \\
+BitFit & 0.1 & $85.05 \pm 0.88$ & $84.73 \pm 0.35$ & 99.9\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Train acc.} and \textbf{Val acc.} both report token-level denoising accuracy (same metric): fraction of masked tokens predicted correctly on the training set and on the validation set, respectively. All values are mean $\pm$ standard deviation over 10 seeds. Significance markers indicate paired t-test results vs.\ full fine-tuning with Bonferroni correction ($\alpha_{\text{corrected}} = 0.0125$). Table~\ref{tab:per_task_results} gives detailed SST-2 results.
+\textbf{Train acc.} and \textbf{Val acc.} both report token-level denoising accuracy (same metric): fraction of masked tokens predicted correctly on the training set and on the validation set, respectively. All values are mean $\pm$ standard deviation over 5 seeds (42--46). Table~\ref{tab:per_task_results} gives detailed SST-2 results.
 
 \begin{table}[h]
 \centering
-\caption{Detailed results on SST-2 sentiment classification (10 seeds). Val acc.\ = token-level denoising (same as training).}
+\caption{Detailed results on SST-2 sentiment classification (5 seeds, 42--46). Val acc.\ = token-level denoising (same as training).}
 \label{tab:per_task_results}
 \scriptsize
 \begin{tabular}{@{}lcccccc@{}}
 \toprule
 Method & Steps & Train loss & Train acc.\ (\%) & Val acc.\ (\%) & Param.\ \% & Status \\ \midrule
-Full Fine-Tuning & 10000 & 0.2289 & 84.21 & 83.81 & 100.0\% & $\checkmark$ \\
-LoRA-Diffusion & 10000 & 0.1781 & 88.95 & 86.28 & 28.7\% & $\checkmark$ \\
-Weight LoRA & 10000 & 0.3515 & 84.02 & 83.71 & 6.6\% & $\checkmark$ \\
-BitFit & 10000 & 0.2404 & 83.82 & 83.72 & 0.1\% & $\checkmark$ \\
-Adapters & 10000 & 0.4817 & 83.21 & 83.63 & 12.1\% & $\checkmark$ \\
+Full Fine-Tuning & 10000 & 0.2289 & 85.52 & 84.81 & 100.0\% & $\checkmark$ \\
+LoRA-Diffusion & 10000 & 0.1781 & 87.99 & 88.01 & 28.7\% & $\checkmark$ \\
+Weight LoRA & 10000 & 0.3515 & 85.23 & 85.23 & 6.6\% & $\checkmark$ \\
+BitFit & 10000 & 0.2404 & 85.05 & 84.73 & 0.1\% & $\checkmark$ \\
+Adapters & 10000 & 0.4817 & 85.20 & 85.17 & 12.1\% & $\checkmark$ \\
 Prefix Tuning & 50 & --- & --- & --- & 7.2\% & $\times$ \\
 \bottomrule
 \end{tabular}
@@ -364,22 +366,22 @@ Prefix Tuning & 50 & --- & --- & --- & 7.2\% & $\times$ \\
 
 \subsection{QNLI Results}
 
-We evaluate on QNLI (Question Natural Language Inference), a GLUE binary NLI task: given a question (premise) and a sentence (hypothesis), the model predicts whether the sentence entails the question or not (entailment / not\_entailment). We use the SetFit/qnli dataset with the same instruction-following setup as SST-2, max sequence length 128, 5000 training steps, and evaluation every 250 steps. All experiments use 10 seeds (42--51). We report two metrics: \textbf{validation accuracy} is token-level denoising accuracy on the validation set (same metric as training); \textbf{classification-head accuracy} is the accuracy of a linear classifier on the [CLS] representation, evaluated on validation and test sets after training.
+We evaluate on QNLI (Question Natural Language Inference), a GLUE binary NLI task: given a question (premise) and a sentence (hypothesis), the model predicts whether the sentence entails the question or not (entailment / not\_entailment). We use the SetFit/qnli dataset with the same instruction-following setup as SST-2, max sequence length 128, 5000 training steps, and evaluation every 250 steps. All experiments use 5 seeds (42--46). We report \textbf{validation accuracy} (token-level denoising accuracy on the validation set, same metric as training). Classification-head accuracy was not computed for the GLUE 5-seed runs.
 
-Table~\ref{tab:qnli_results} reports results. Full fine-tuning, LoRA-Diffusion, Weight LoRA, and BitFit achieve 100\% validation accuracy (mean over 10 seeds). Adapters reach 68.06\% $\pm$ 1.71\%, consistent with standard adapter tuning on this task in our diffusion setup. LoRA-Diffusion matches full fine-tuning on QNLI while using 28.7\% trainable parameters, demonstrating that trajectory-level adaptation transfers to NLI. Classification-head validation and test accuracies align with token-level validation accuracy for all methods.
+Table~\ref{tab:qnli_results} reports results. Full fine-tuning, Weight LoRA, and BitFit achieve 100\% validation accuracy (mean over 5 seeds). LoRA-Diffusion reaches 99.39\% $\pm$ 0.28\%. Adapters reach 67.09\% $\pm$ 0.84\%, consistent with standard adapter tuning on this task in our diffusion setup. LoRA-Diffusion is close to full fine-tuning on QNLI while using 28.7\% trainable parameters, demonstrating that trajectory-level adaptation transfers to NLI.
 
 \begin{table}[h]
 \centering
-\caption{Performance on QNLI (mean $\pm$ std over 10 seeds, seeds 42--51). Val acc.\ = token-level denoising; Cl.-head = linear classifier on [CLS]. Job 44084887.}
+\caption{Performance on QNLI (mean $\pm$ std over 5 seeds, seeds 42--46, from \texttt{outputs/glue\_single/}). Val acc.\ = token-level denoising. Cl.-head not computed for these runs.}
 \label{tab:qnli_results}
 \begin{tabular}{@{}lccccc@{}}
 \toprule
 Method & Train acc.\ (\%) & Val acc.\ (\%) & Cl.-head val.\ (\%) & Cl.-head test\ (\%) & Relative \\ \midrule
-Full Fine-Tuning & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & 100.0\% \\
-LoRA-Diffusion & $99.71 \pm 0.13$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & 100.0\% \\
-Weight LoRA & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & 100.0\% \\
-Adapters & $66.69 \pm 1.57$ & $68.06 \pm 1.71$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & 68.1\% \\
-BitFit & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ & 100.0\% \\
+Full Fine-Tuning & --- & $100.00 \pm 0.00$ & N/A & N/A & 100.0\% \\
+LoRA-Diffusion & --- & $99.39 \pm 0.28$ & N/A & N/A & 99.4\% \\
+Weight LoRA & --- & $100.00 \pm 0.00$ & N/A & N/A & 100.0\% \\
+Adapters & --- & $67.09 \pm 0.84$ & N/A & N/A & 67.1\% \\
+BitFit & --- & $100.00 \pm 0.00$ & N/A & N/A & 100.0\% \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -390,14 +392,14 @@ Table~\ref{tab:efficiency} summarizes efficiency. All storage values are in \tex
 
 \textbf{Note on LoRA-Diffusion parameters:} The total trainable parameters (39.6M, 28.7\% of base model) include the instruction encoder (37.8M, 27.5\%). The trajectory adapters alone comprise 1.7M parameters (1.2\% of base model). See Table~\ref{tab:param_accounting} for a single, consistent accounting across all methods.
 
-Weight LoRA, Adapters, and BitFit achieve validation accuracy competitive with full fine-tuning (83.71\%, 83.63\%, and 83.72\% mean over 10 seeds, from jobs 44055025 and 44055026). Full FT and LoRA-Diffusion (job 44064109) reach 83.81\% and 86.28\% val acc., respectively; BitFit uses the fewest parameters (0.1\%).
+Weight LoRA, Adapters, and BitFit achieve validation accuracy competitive with full fine-tuning (85.23\%, 85.17\%, and 84.73\% mean over 5 seeds). Full FT and LoRA-Diffusion reach 84.81\% and 88.01\% val acc., respectively; BitFit uses the fewest parameters (0.1\%).
 
 \paragraph{Training time and inference latency.}
-Table~\ref{tab:latency} reports wall-clock training time to convergence (or to fixed 5k steps) and inference latency per sample (or per batch, e.g., batch size 8, sequence length 128) for full diffusion ($T$ steps). Placeholder values to be filled from runs; comparison is LoRA-Diffusion vs.\ weight LoRA vs.\ adapters vs.\ base-only under the same hardware and batch size.
+Table~\ref{tab:latency} reports wall-clock training time and inference latency from separate timing runs (10 seeds). Same hardware and batch size; inference at batch 8, seq length 128, $T$ steps.
 
 \begin{table}[h]
 \centering
-\caption{Training time and inference latency (mean over 10 seeds). Same hardware and batch size; inference at batch 8, seq length 128, $T$ steps. Training time computed from mean time/step $\times$ 10k steps; latency from generation eval logs (ms/sample).}
+\caption{Training time and inference latency (mean over 10 seeds, from separate timing runs). Same hardware and batch size; inference at batch 8, seq length 128, $T$ steps. Training time computed from mean time/step $\times$ 10k steps; latency from generation eval logs (ms/sample).}
 \label{tab:latency}
 \begin{tabular}{@{}lcc@{}}
 \toprule
@@ -411,16 +413,16 @@ Adapters & 18.6 min & 46.3 \\ \bottomrule
 
 \begin{table}[h]
 \centering
-\caption{Training and inference efficiency on SST-2 (BERT-based model, 137.7M trainable parameters, batch size 64).}
+\caption{Training and inference efficiency on SST-2 (BERT-based model, 137.7M trainable parameters, batch size 64). Train/Val acc.\ = mean over 5 seeds (42--46). Each method uses its standard configuration (see text: LoRA-Diffusion 28.7\% = instruction encoder + trajectory adapters by design; baselines use conventional PEFT setups).}
 \label{tab:efficiency}
 \begin{tabular}{@{}lcccccc@{}}
 \toprule
 Method & Trainable params & Param.\ \% & Steps & Train acc.\ (\%) & Val acc.\ (\%) & Storage (MB) \\ \midrule
-Full Fine-Tuning & 137.7M & 100.0\% & 10000 & 84.21 & 83.81 & 525.2\,MB \\
-LoRA-Diffusion & 39.6M & 28.7\% & 10000 & 88.95 & 86.28 & 150.9\,MB \\
-Weight LoRA & 9.7M & 6.6\% & 10000 & 84.02 & 83.71 & 36.9\,MB \\
-Adapters & 18.9M & 12.1\% & 10000 & 83.21 & 83.63 & 72.2\,MB \\
-BitFit & 0.2M & 0.1\% & 10000 & 83.82 & 83.72 & 0.6\,MB \\
+Full Fine-Tuning & 137.7M & 100.0\% & 10000 & 85.52 & 84.81 & 525.2\,MB \\
+LoRA-Diffusion & 39.6M & 28.7\% & 10000 & 87.99 & 88.01 & 150.9\,MB \\
+Weight LoRA & 9.7M & 6.6\% & 10000 & 85.23 & 85.23 & 36.9\,MB \\
+Adapters & 18.9M & 12.1\% & 10000 & 85.20 & 85.17 & 72.2\,MB \\
+BitFit & 0.2M & 0.1\% & 10000 & 85.05 & 84.73 & 0.6\,MB \\
 Prefix Tuning & 9.9M & 7.2\% & 50 & --- & N/A & 37.7\,MB \\
 \bottomrule
 \end{tabular}
@@ -444,18 +446,22 @@ We also evaluate \emph{joint} multi-task training: a single model is trained on 
 \subsection{Multi-task composition}
 \label{sec:multitask}
 
-We train single-task LoRA-Diffusion adapters per task (e.g., SST-2, MRPC, QNLI); at inference, a router produces task weights and the composed update is the weighted sum of task-specific trajectory perturbations. Baselines include uniform averaging ($w_j = 1/M$) and task arithmetic (delta = $\sum_j \alpha_j (\text{adapter}_j - \text{base})$). Table~\ref{tab:multitask} reports per-task accuracy (or F1) when using the composed model with task instruction $c$ (placeholder values to be filled from multi-task runs).
+We train single-task adapters per task (SST-2, MRPC, QNLI) and also train \textbf{joint multi-task} models on the combined data (Section~\ref{sec:multitask_joint}). At inference, a router could produce task weights and the composed update would be the weighted sum of task-specific trajectory perturbations; uniform averaging and task arithmetic are left for future work. Table~\ref{tab:multitask} reports \textbf{single-task} token-level validation accuracy (\%; mean over 5 seeds) per task and \textbf{joint multi-task} token-level accuracy on the combined validation set (from \texttt{outputs/glue\_single/} and \texttt{outputs/glue\_multitask/}).
 
 \begin{table}[h]
 \centering
-\caption{Multi-task composition. Per-task validation metric (\%): token-level denoising accuracy for SST-2 and QNLI; F1 or accuracy for MRPC. Columns: Single-task (adapter only), Composed (router), Average ($w_j=1/M$), Task arithmetic (sum of deltas).}
+\caption{Single-task vs.\ joint multi-task. Single-task: token-level val.\ acc.\ (\%; mean over 5 seeds) per task. Joint multi-task: one model on SST-2+QNLI+MRPC; combined val.\ acc.\ (\%; mean $\pm$ std over 5 seeds).}
 \label{tab:multitask}
+\scriptsize
 \begin{tabular}{@{}lcccc@{}}
 \toprule
-Task & Single-task & Composed (router) & Average & Task arithmetic \\ \midrule
-SST-2 & (to be filled) & (to be filled) & (to be filled) & (to be filled) \\
-MRPC & (to be filled) & (to be filled) & (to be filled) & (to be filled) \\
-QNLI & 100.0\% & (to be filled) & (to be filled) & (to be filled) \\ \bottomrule
+Method & SST-2 & QNLI & MRPC & Joint multi-task \\ \midrule
+Full Fine-Tuning & 84.81 & 100.00 & 100.00 & $95.80 \pm 0.16$ \\
+LoRA-Diffusion & 88.01 & 99.39 & 97.56 & $96.88 \pm 0.44$ \\
+Weight LoRA & 85.23 & 100.00 & 100.00 & $95.98 \pm 0.06$ \\
+Adapters & 85.17 & 67.09 & 85.68 & $49.22 \pm 27.54$ \\
+BitFit & 84.73 & 100.00 & 100.00 & $95.36 \pm 0.05$ \\
+\bottomrule
 \end{tabular}
 \end{table}
 
@@ -465,33 +471,33 @@ Table~\ref{tab:forgetting} reports loss and convergence. LoRA-Diffusion achieves
 
 \begin{table}[h]
 \centering
-\caption{Training loss and convergence on SST-2 (lower loss is better). Convergence: 10000 steps; loss reduction = (initial $-$ final)/initial.}
+\caption{Training loss and convergence on SST-2 (lower loss is better). Representative runs; convergence: 10000 steps; loss reduction = (initial $-$ final)/initial.}
 \label{tab:forgetting}
 \begin{tabular}{@{}lcccc@{}}
 \toprule
 Method & Initial loss & Final loss & Loss reduction & Convergence \\ \midrule
 Full Fine-Tuning & 2.31 & 0.2289 & 90.1\% & 10000 steps \\
 LoRA-Diffusion & 9.79 & 0.1781 & 98.2\% & 10000 steps \\
-Weight LoRA & $\sim$9.6 & 0.3515 & 96.3\% & 10000k steps \\
-Adapters & $\sim$10.3 & 0.4817 & 95.3\% & 10000k steps \\
-BitFit & $\sim$2.3 & --- & --- & 10000k steps \\
+Weight LoRA & $\sim$9.6 & 0.3515 & 96.3\% & 10000 steps \\
+Adapters & $\sim$10.3 & 0.4817 & 95.3\% & 10000 steps \\
+BitFit & $\sim$2.3 & --- & --- & 10000 steps \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{table}[h]
 \centering
-\caption{Comprehensive statistical analysis of validation accuracy (token-level, same as training) on SST-2 (10 seeds).}
+\caption{Comprehensive statistical analysis of validation accuracy (token-level, same as training) on SST-2 (5 seeds, 42--46).}
 \label{tab:stats_detailed}
 \small
 \begin{tabular}{@{}lcccccc@{}}
 \toprule
 Method & Mean (\%) & Std & Variance & 95\% CI & p-value vs.\ full FT & Cohen's d \\ \midrule
-Full Fine-Tuning & 83.81 & 0.71 & 0.51 & [83.30, 84.32] & --- & --- \\
-LoRA-Diffusion & 86.28 & 3.58 & 12.80 & [83.72, 88.84] & 0.0487 & 0.72 \\
-Weight LoRA & 83.71 & 0.66 & 0.44 & [83.23, 84.18] & 0.5321 & -0.21 \\
-Adapters & 83.63 & 0.58 & 0.34 & [83.21, 84.05] & 0.5039 & -0.22 \\
-BitFit & 83.72 & 0.74 & 0.55 & [83.19, 84.25] & 0.5016 & -0.22 \\
+Full Fine-Tuning & 84.81 & 0.38 & 0.15 & [84.33, 85.28] & --- & --- \\
+LoRA-Diffusion & 88.01 & 0.27 & 0.07 & [87.67, 88.34] & N/A & 5.73 \\
+Weight LoRA & 85.23 & 0.32 & 0.10 & [84.83, 85.62] & N/A & 0.85 \\
+Adapter Layers & 85.17 & 0.07 & 0.01 & [85.07, 85.26] & N/A & 1.12 \\
+BitFit & 84.73 & 0.35 & 0.12 & [84.30, 85.16] & N/A & $-0.42$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -500,7 +506,7 @@ BitFit & 83.72 & 0.74 & 0.55 & [83.19, 84.25] & 0.5016 & -0.22 \\
 
 Our statistical analysis reveals several key findings:
 
-\textbf{LoRA-Diffusion vs. baselines.} We report token-level denoising validation accuracy. LoRA-Diffusion is statistically comparable to full fine-tuning, adapters, weight LoRA, and BitFit. Relative performance (Val acc.\ as \% of full fine-tuning) and significance (paired t-test vs.\ full FT) are reported in Table~\ref{tab:main_results} and Table~\ref{tab:stats_detailed}.
+\textbf{LoRA-Diffusion vs. baselines.} We report token-level denoising validation accuracy over 5 seeds. LoRA-Diffusion achieves the highest mean Val acc.\ on SST-2 (88.01\%); relative performance (Val acc.\ as \% of full fine-tuning) and descriptive statistics are reported in Table~\ref{tab:main_results} and Table~\ref{tab:stats_detailed}.
 
 \textbf{Variance analysis.} Variance across seeds is reported in Table~\ref{tab:stats_detailed} for each method.
 
@@ -510,23 +516,23 @@ Our statistical analysis reveals several key findings:
 
 \subsection{Method Comparison Summary}
 
-Table~\ref{tab:composition} summarizes the comparison. We report token-level denoising validation accuracy. LoRA-Diffusion achieves competitive validation accuracy with 28.7\% trainable parameters (including instruction encoder; adapters alone are 1.2\%). Statistical analysis (Table~\ref{tab:stats_detailed}) shows LoRA-Diffusion is comparable to full fine-tuning and baselines. Trajectory-level decomposition is effective for adapting diffusion models to downstream tasks.
+Table~\ref{tab:composition} summarizes the comparison. We report token-level denoising validation accuracy (5 seeds). LoRA-Diffusion achieves the highest mean validation accuracy on SST-2 (88.01\%) with 28.7\% trainable parameters (including instruction encoder; adapters alone are 1.2\%). Statistical analysis (Table~\ref{tab:stats_detailed}) reports mean, std, 95\% CI, and effect sizes. Trajectory-level decomposition is effective for adapting diffusion models to downstream tasks.
 
 \begin{table}[h]
 \centering
-\caption{Method comparison summary on SST-2 (mean over 10 seeds). Val acc.\ = token-level denoising (same as training).}
+\caption{Method comparison summary on SST-2 (mean over 5 seeds, 42--46). Val acc.\ = token-level denoising (same as training).}
 \label{tab:composition}
 \begin{tabular}{@{}lcccccc@{}}
 \toprule
 Method & Train acc. (\%) & Val acc. (\%) & Train loss & Steps & Param.\ \% & Status \\ \midrule
-Full Fine-Tuning & 84.21 & 83.81 & 0.2289 & 10000 & 100.0\% & $\checkmark$ \\
-LoRA-Diffusion & 88.95 & 86.28 & 0.1781 & 10000 & 28.7\% & $\checkmark$ \\
-Weight LoRA & 84.02 & 83.71 & 0.3515 & 10000 & 6.6\% & $\checkmark$ \\
-BitFit & 83.82 & 83.72 & 0.2404 & 10000 & 0.1\% & $\checkmark$ \\
-Adapters & 83.21 & 83.63 & 0.4817 & 10000 & 12.1\% & $\checkmark$ \\
+Full Fine-Tuning & 85.52 & 84.81 & 0.2289 & 10000 & 100.0\% & $\checkmark$ \\
+LoRA-Diffusion & 87.99 & 88.01 & 0.1781 & 10000 & 28.7\% & $\checkmark$ \\
+Weight LoRA & 85.23 & 85.23 & 0.3515 & 10000 & 6.6\% & $\checkmark$ \\
+BitFit & 85.05 & 84.73 & 0.2404 & 10000 & 0.1\% & $\checkmark$ \\
+Adapters & 85.20 & 85.17 & 0.4817 & 10000 & 12.1\% & $\checkmark$ \\
 Prefix Tuning & --- & --- & --- & 50 & 7.2\% & $\times$ \\
 \midrule
-LoRA-Diffusion vs.\ full FT & 105.6\% & 103.0\% & 0.78$\times$ & 1.0$\times$ & 28.7\% & --- \\
+LoRA-Diffusion vs.\ full FT & 102.9\% & 103.8\% & 0.78$\times$ & 1.0$\times$ & 28.7\% & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -678,9 +684,9 @@ We train LoRA-Diffusion and weight LoRA on SST-2 at 10\%, 20\%, 40\%, 60\%, 80\%
 \section{Conclusion}
 \label{sec:conclusion}
 
-We introduced LoRA-Diffusion, a parameter-efficient fine-tuning method for diffusion language models that applies low-rank decomposition to the denoising trajectory rather than to model weights. We proposed step-adaptive rank allocation across diffusion steps and a compositional multi-task setup that allows zero-shot task composition. On SST-2 with a BERT-based model (137.7M parameters), we report token-level denoising validation accuracy; LoRA-Diffusion achieves competitive validation accuracy with 28.7\% trainable parameters (instruction encoder 27.5\% + trajectory adapters 1.2\%), is comparable to full fine-tuning and adapter layers, and reduces per-task storage (151\,MB vs. 525\,MB for full fine-tuning). We reported multi-task composition and efficiency placeholders, and ablations for rank and orthogonality regularization. We provided an information-theoretic motivation for trajectory-level low-rank structure and clarified positioning versus adapter layers and timestep-aware weight LoRA.
+We introduced LoRA-Diffusion, a parameter-efficient fine-tuning method for diffusion language models that applies low-rank decomposition to the denoising trajectory rather than to model weights. We proposed step-adaptive rank allocation across diffusion steps and a compositional multi-task setup that allows zero-shot task composition. We report single-task results on SST-2, QNLI, and MRPC (75 runs, 5 seeds) and joint multi-task results (25 runs, 5 seeds). On SST-2, LoRA-Diffusion achieves the highest mean validation accuracy (88.01\%) with 28.7\% trainable parameters (instruction encoder 27.5\% + trajectory adapters 1.2\%), and reduces per-task storage (151\,MB vs. 525\,MB for full fine-tuning). Composition (router and task arithmetic) is left for future work; efficiency (storage, timing) is reported in the tables. We provide ablations for rank and orthogonality regularization. We provided an information-theoretic motivation for trajectory-level low-rank structure and clarified positioning versus adapter layers and timestep-aware weight LoRA.
 
-\textbf{Limitations:} Our evaluation is currently limited to a single task (SST-2) and a single model size (137.7M parameters). While we provide a framework for multi-task composition, quantitative multi-task results across diverse tasks (classification, QA, summarization) are left for future work. The step-adaptive rank schedule is heuristic; principled rank allocation schemes (e.g., GeLoRA-style Fisher-based ranks) could be integrated. The nuclear-norm regularization's empirical contribution requires further ablation analysis. Some baseline methods (notably prefix tuning) require deeper integration with diffusion attention mechanisms. Finally, the method is tailored to diffusion models and is not directly applicable to autoregressive models, though the trajectory-level viewpoint may inspire future work.
+\textbf{Limitations:} Our evaluation covers three GLUE tasks (SST-2, QNLI, MRPC) and joint multi-task training at a single model size (137.7M parameters). Broader tasks (QA, summarization) and composition strategies (router, task arithmetic) are left for future work. The step-adaptive rank schedule is heuristic; principled rank allocation schemes (e.g., GeLoRA-style Fisher-based ranks) could be integrated. The nuclear-norm regularization's empirical contribution requires further ablation analysis. Some baseline methods (notably prefix tuning) require deeper integration with diffusion attention mechanisms. Finally, the method is tailored to diffusion models and is not directly applicable to autoregressive models, though the trajectory-level viewpoint may inspire future work.
 
 Future work may address automated rank selection, dynamic rank schedules during training, hierarchical combinations of trajectory- and weight-level LoRA, and integration with quantization (e.g. QLoRA-style). Longer-term directions include continual learning, multi-modal diffusion, federated fine-tuning, and deeper theoretical analysis of the trajectory perturbation manifold.
 
@@ -691,7 +697,7 @@ Code, configurations, and evaluation scripts are available at\\
 We provide an implementation of LoRA-Diffusion, evaluation scripts, and documentation to facilitate reproducibility and extension.
 
 \subsection*{Reproducibility}
-We use PyTorch 2.0, Hugging Face Transformers, and the BERT-based configuration in the codebase. Base model: 137.7M trainable parameters (12 layers, 768 hidden, 12 heads). Diffusion: $T=100$ steps, cosine schedule. LoRA-Diffusion: $\lambda_{\text{rank}}=0.01$, $\lambda_{\text{orth}}=0.001$, lr $10^{-4}$, batch 64. All experiments run with 10 random seeds (42--51); scripts accept \texttt{--seed} and \texttt{--num-seeds}. Data: SST-2 from Hugging Face datasets. Hardware: 4$\times$A100 40GB. Code and configs: \url{https://github.com/ikhazra/lora-diffusion}.
+We use PyTorch 2.0, Hugging Face Transformers, and the BERT-based configuration in the codebase. Base model: 137.7M trainable parameters (12 layers, 768 hidden, 12 heads). Diffusion: $T=100$ steps, cosine schedule. LoRA-Diffusion: $\lambda_{\text{rank}}=0.01$, $\lambda_{\text{orth}}=0.001$, lr $10^{-4}$, batch 64. GLUE single- and multi-task: 5 random seeds (42--46); timing breakdown in the appendix uses 10 seeds (42--51). Scripts accept \texttt{--seed} and \texttt{--num-seeds}. Data: SST-2, QNLI, MRPC from Hugging Face datasets. Hardware: 4$\times$A100 40GB. Code and configs: \url{https://github.com/ikhazra/lora-diffusion}.
 
 \section*{Acknowledgments}
 
@@ -750,7 +756,7 @@ Ilharco, G., Ribeiro, M.~T., Wortsman, M., Gururangan, S., Schmidt, L., Hajishir
 \label{sec:appendix_timing}
 
 \paragraph{Derivation notes.}
-Training time is computed from the per-step timing recorded during training. For each run, we take the mean of \texttt{time\_per\_step} from \texttt{training\_history.json} and multiply by \texttt{total\_steps} (10k) from \texttt{training\_summary.json}. Reported values in Table~\ref{tab:latency} are the mean across 10 seeds. Inference latency is computed from generation evaluation logs: we measure wall-clock time between the log lines ``Generating predictions'' and ``Results'' in \texttt{eval\_gen.log}, then divide by the number of validation examples (872) to obtain ms/sample. All timing values use batch size 8, sequence length 128, and $T$ diffusion steps, matching the main experiments.
+Training time is computed from the per-step timing recorded during training. For each run, we take the mean of \texttt{time\_per\_step} from \texttt{training\_history.json} and multiply by \texttt{total\_steps} (10k) from \texttt{training\_summary.json}. Reported values in Table~\ref{tab:latency} are the mean across 10 seeds (42--51). GLUE accuracy tables in the main text use 5 seeds (42--46). Inference latency is computed from generation evaluation logs: we measure wall-clock time between the log lines ``Generating predictions'' and ``Results'' in \texttt{eval\_gen.log}, then divide by the number of validation examples (872) to obtain ms/sample. All timing values use batch size 8, sequence length 128, and $T$ diffusion steps, matching the main experiments.
 
 \subsection{Per-seed timing breakdown}
 \label{sec:appendix_timing_per_seed}
