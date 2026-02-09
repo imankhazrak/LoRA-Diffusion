@@ -426,6 +426,21 @@ Prefix Tuning & 9.9M & 7.2\% & 50 & --- & N/A & 37.7\,MB \\
 \end{tabular}
 \end{table}
 
+\subsection{Single-Task GLUE Results (SST-2, QNLI, MRPC)}
+\label{sec:glue_single}
+
+We report token-level validation accuracy for single-task runs on SST-2, QNLI, and MRPC with five methods (full fine-tuning, LoRA-Diffusion, weight LoRA, adapters, BitFit) and five seeds (42--46). All 75 runs completed; results are collected from \texttt{outputs/glue\_single/}, and the full per-run table and summary statistics are in \texttt{doc/GLUE\_SINGLE\_TASK\_RESULTS.md}. Table~\ref{tab:glue_single_summary} gives the mean and standard deviation of \textbf{token-level denoising accuracy} (\%): at evaluation we mask the label token and measure whether the model predicts it correctly given the instruction (teacher-forced). For binary tasks (QNLI, MRPC) with a single-token label this metric can reach 100\% and is not a bug; the more comparable metric is \textbf{generation accuracy} (model generates the label from scratch; decoded output vs.\ reference), reported in Table~\ref{tab:glue_single_gen}. LoRA-Diffusion reaches the highest mean token-level accuracy on SST-2 (88.01\% $\pm$ 0.27\%) and strong performance on QNLI and MRPC. Full fine-tuning, weight LoRA, and BitFit attain 100\% token-level on QNLI and MRPC; on SST-2, LoRA-Diffusion outperforms full fine-tuning (84.81\% $\pm$ 0.38\%). Adapters underperform on QNLI (67.09\% $\pm$ 0.84\%) but reach 85.68\% $\pm$ 1.38\% on MRPC.
+
+\input{glue_single_table}
+\input{glue_single_gen_table}
+
+\subsection{Multi-Task GLUE Results (Joint Training)}
+\label{sec:multitask_joint}
+
+We also evaluate \emph{joint} multi-task training: a single model is trained on the combined SST-2, QNLI, and MRPC datasets (same five methods and five seeds 42--46). Results are collected from \texttt{outputs/glue\_multitask/}; the full per-run table and summary statistics are in \texttt{doc/GLUE\_MULTITASK\_RESULTS.md}. Table~\ref{tab:glue_multitask} reports token-level validation accuracy and generation accuracy (mean $\pm$ std over seeds) on the combined validation set. LoRA-Diffusion achieves the highest mean token-level accuracy (96.88\% $\pm$ 0.44\%), followed by weight LoRA (95.98\% $\pm$ 0.06\%), full fine-tuning (95.80\% $\pm$ 0.16\%), and BitFit (95.36\% $\pm$ 0.05\%). Adapters show high variance (49.22\% $\pm$ 27.54\%) with one seed (42) at 0\%; the other four seeds reach $\sim$60--63\%. Generation accuracy on the joint setup remains low ($\sim$6.35\%) for all methods, consistent with the single-task observation that decoded generation is harder than teacher-forced token-level prediction.
+
+\input{glue_multitask_table}
+
 \subsection{Multi-task composition}
 \label{sec:multitask}
 
@@ -516,7 +531,7 @@ LoRA-Diffusion vs.\ full FT & 105.6\% & 103.0\% & 0.78$\times$ & 1.0$\times$ & 2
 \end{tabular}
 \end{table}
 
-Prefix tuning is not included in the primary comparison; integration with diffusion attention is non-trivial and left for future work. Multi-task composition is supported (\texttt{compose\_tasks}); quantitative multi-task results are reported in Section~\ref{sec:multitask} (placeholder).
+Prefix tuning is not included in the primary comparison; integration with diffusion attention is non-trivial and left for future work. Multi-task composition is supported (\texttt{compose\_tasks}). Quantitative joint multi-task results are reported in Section~\ref{sec:multitask_joint}; composition (router and task arithmetic) is in Section~\ref{sec:multitask}.
 
 \subsection{Rank and Module Ablations}
 
