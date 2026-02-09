@@ -2,6 +2,7 @@
 """Main training script for LoRA-Diffusion."""
 
 import argparse
+import json
 import logging
 from pathlib import Path
 import sys
@@ -25,6 +26,7 @@ for cache_name in ["hf_cache", "transformers_cache", "datasets_cache", "torch_ca
     cache_dir = cache_base / cache_name
     cache_dir.mkdir(parents=True, exist_ok=True)
 
+import subprocess
 import torch
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
@@ -33,6 +35,7 @@ from transformers import AutoTokenizer
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.models import MaskedDiffusionTransformer, LoRADiffusionModule
+from src.models.lora_modules import InstructionEncoder
 from src.models.baselines import (
     apply_weight_lora_to_model,
     setup_bitfit,
@@ -120,8 +123,28 @@ def parse_args():
     return parser.parse_args()
 
 
+def create_shared_instruction_encoder(config):
+    """Create instruction encoder + projection (same architecture as LoRA-Diffusion) for baseline methods."""
+    lora_config = config.get("lora", {})
+    model_config = config.get("model", {})
+    vocab_size = model_config.get("vocab_size", 30522)
+    hidden_dim = model_config.get("hidden_dim", 768)
+    instruction_hidden = lora_config.get("instruction_encoder_hidden", 256)
+    instruction_layers = lora_config.get("instruction_encoder_layers", 2)
+    instruction_encoder = InstructionEncoder(
+        vocab_size=vocab_size,
+        hidden_dim=hidden_dim,
+        output_dim=instruction_hidden,
+        num_layers=instruction_layers,
+    )
+    instruction_to_hidden = torch.nn.Linear(instruction_hidden, hidden_dim)
+    torch.nn.init.zeros_(instruction_to_hidden.weight)
+    torch.nn.init.zeros_(instruction_to_hidden.bias)
+    return instruction_encoder, instruction_to_hidden
+
+
 def setup_model(config, method_name):
-    """Initialize model based on method."""
+    """Initialize model based on method. Returns (model, lora_module, instruction_encoder, instruction_to_hidden)."""
     logger.info(f"Initializing model with method: {method_name}")
     
     # Create base diffusion model
@@ -135,12 +158,20 @@ def setup_model(config, method_name):
         logger.info("Froze base model parameters")
     
     lora_module = None
+    instruction_encoder = None
+    instruction_to_hidden = None
     
     if method_name == "lora_diffusion":
         # Create LoRA-Diffusion module
         lora_module = LoRADiffusionModule(config)
         logger.info("Created LoRA-Diffusion module")
-        
+        encoder_frozen = config.get("instruction_encoder_frozen", config.get("experiment", {}).get("instruction_encoder_frozen", True))
+        if encoder_frozen:
+            for p in lora_module.instruction_encoder.parameters():
+                p.requires_grad = False
+            for p in lora_module.instruction_to_hidden.parameters():
+                p.requires_grad = False
+            logger.info("LoRA-Diffusion: instruction encoder frozen (MODE-FROZEN-ENC)")
         # Log parameter counts
         lora_counts = lora_module.count_parameters()
         logger.info(f"LoRA parameters: {lora_counts}")
@@ -217,7 +248,20 @@ def setup_model(config, method_name):
     elif method_name == "full_ft":
         logger.info("Using full fine-tuning")
     
-    return base_model, lora_module
+    # Shared instruction encoder for baseline methods (MODE-FROZEN-ENC / MODE-TRAIN-ENC)
+    if lora_module is None and method_name in ("full_ft", "weight_lora", "adapters", "bitfit"):
+        instruction_encoder, instruction_to_hidden = create_shared_instruction_encoder(config)
+        encoder_frozen = config.get("instruction_encoder_frozen", config.get("experiment", {}).get("instruction_encoder_frozen", True))
+        if encoder_frozen:
+            for p in instruction_encoder.parameters():
+                p.requires_grad = False
+            for p in instruction_to_hidden.parameters():
+                p.requires_grad = False
+            logger.info("Using shared instruction encoder (frozen, MODE-FROZEN-ENC)")
+        else:
+            logger.info("Using shared instruction encoder (trainable, MODE-TRAIN-ENC)")
+    
+    return base_model, lora_module, instruction_encoder, instruction_to_hidden
 
 
 def main():
@@ -275,6 +319,33 @@ def main():
     seed = config["training"]["seed"]
     set_seed(seed)
     logger.info(f"Set random seed to {seed}")
+    
+    # Reproducibility: run_info.json (git hash, config, seed, command, hardware)
+    output_dir = Path(config["output"]["base_dir"])
+    output_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        git_hash = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=Path(__file__).parent.parent,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except Exception:
+        git_hash = None
+    run_info = {
+        "git_commit": git_hash,
+        "seed": seed,
+        "task": args.task,
+        "method": args.method,
+        "command": " ".join([sys.executable] + sys.argv),
+        "config": config,
+    }
+    if torch.cuda.is_available():
+        run_info["cuda_device"] = torch.cuda.get_device_name(0)
+    run_info_path = output_dir / "run_info.json"
+    with open(run_info_path, "w") as f:
+        json.dump(run_info, f, indent=2)
+    logger.info(f"Saved run_info to {run_info_path}")
     
     # Setup device
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -338,7 +409,7 @@ def main():
     )
     
     # Setup model
-    model, lora_module = setup_model(config, args.method)
+    model, lora_module, instruction_encoder, instruction_to_hidden = setup_model(config, args.method)
     
     # Setup optimizer
     logger.info("Setting up optimizer...")
@@ -346,6 +417,10 @@ def main():
         params_to_optimize = list(lora_module.parameters())
     else:
         params_to_optimize = [p for p in model.parameters() if p.requires_grad]
+    if instruction_encoder is not None:
+        params_to_optimize.extend([p for p in instruction_encoder.parameters() if p.requires_grad])
+    if instruction_to_hidden is not None:
+        params_to_optimize.extend([p for p in instruction_to_hidden.parameters() if p.requires_grad])
     
     optimizer = torch.optim.AdamW(
         params_to_optimize,
@@ -372,6 +447,8 @@ def main():
         config=config,
         lora_module=lora_module,
         device=device,
+        instruction_encoder=instruction_encoder,
+        instruction_to_hidden=instruction_to_hidden,
     )
     
     # Resume from checkpoint if specified

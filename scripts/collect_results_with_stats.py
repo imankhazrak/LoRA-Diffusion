@@ -182,6 +182,15 @@ def extract_metrics_from_output(output_dir: Path, task: Optional[str] = None) ->
                 metrics["classification_head_test_acc"] = ch_data.get("classification_head_test_acc")
             break
 
+    # Parameter accounting (params.json written by trainer)
+    params_file = output_dir / "params.json"
+    if params_file.exists():
+        with open(params_file, "r") as f:
+            params_data = json.load(f)
+            metrics["trainable_params_peft_only"] = params_data.get("trainable_params_peft_only")
+            metrics["trainable_params_total"] = params_data.get("trainable_params_total")
+            metrics["checkpoint_mb"] = params_data.get("checkpoint_mb")
+
     return metrics if metrics else None
 
 

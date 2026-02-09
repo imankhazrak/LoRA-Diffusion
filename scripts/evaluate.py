@@ -15,6 +15,7 @@ from tqdm import tqdm
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.models import MaskedDiffusionTransformer, LoRADiffusionModule, MultiTaskLoRAComposer
+from src.models.lora_modules import InstructionEncoder
 from src.data import get_task_loader, DiffusionCollator
 from src.evaluation import compute_metrics
 from src.training.losses import compute_diffusion_loss
@@ -125,6 +126,8 @@ def compute_teacher_forced_metrics(
     dataloader,
     device: str,
     config: Dict[str, Any],
+    instruction_encoder=None,
+    instruction_to_hidden=None,
 ) -> Dict[str, float]:
     """
     Compute teacher-forced metrics (token-level accuracy) - same metric and aggregation as training.
@@ -140,6 +143,8 @@ def compute_teacher_forced_metrics(
             batch=batch,
             lora_module=lora_module,
             config=config,
+            instruction_encoder=instruction_encoder,
+            instruction_to_hidden=instruction_to_hidden,
         )
         total_loss += loss.item()
         total_acc += metrics["accuracy"]
@@ -338,13 +343,15 @@ def find_checkpoint_subdir(checkpoint_path: Path, config: Optional[Dict[str, Any
 
 @torch.no_grad()
 def generate_predictions(
-    model, 
-    lora_module, 
-    composer, 
-    dataloader, 
-    device, 
+    model,
+    lora_module,
+    composer,
+    dataloader,
+    device,
     config,
     use_composition=False,
+    instruction_encoder=None,
+    instruction_to_hidden=None,
 ):
     """Generate predictions for all samples."""
     model.eval()
@@ -419,8 +426,10 @@ def generate_predictions(
                     instruction_ids,
                     attention_mask=instruction_mask,
                 )
-                # Project to hidden_dim for base model conditioning (required for LoRA-Diffusion)
                 instruction_emb = lora_module.instruction_to_hidden(instruction_emb)
+            elif instruction_encoder is not None and instruction_to_hidden is not None:
+                instruction_emb = instruction_encoder(instruction_ids, attention_mask=instruction_mask)
+                instruction_emb = instruction_to_hidden(instruction_emb)
             else:
                 instruction_emb = None
             
@@ -463,6 +472,8 @@ def get_final_hiddens_and_labels(
     label_names,
     classification_seq_len=5,
     composer=None,
+    instruction_encoder=None,
+    instruction_to_hidden=None,
 ):
     """
     Collect final-step hidden states and label indices for classification-head evaluation.
@@ -507,10 +518,14 @@ def get_final_hiddens_and_labels(
                 return_final_hidden=True,
             )
         else:
+            inst_emb = None
+            if instruction_encoder is not None and instruction_to_hidden is not None:
+                inst_emb = instruction_encoder(instruction_ids, attention_mask=instruction_mask)
+                inst_emb = instruction_to_hidden(inst_emb)
             xt, final_hidden = model.get_final_hidden_for_classification(
                 batch_size=batch_size,
                 seq_len=seq_len,
-                instruction_embedding=None,
+                instruction_embedding=inst_emb,
                 device=device,
             )
         
@@ -768,9 +783,11 @@ def main():
             else:
                 logger.info("Loaded model with strict=False (PEFT method)")
     
-    # Load LoRA module or composer
+    # Load LoRA module or composer (or shared instruction encoder for baselines)
     lora_module = None
     composer = None
+    instruction_encoder = None
+    instruction_to_hidden = None
     
     if args.use_composition:
         if not args.task_modules or not args.task_names:
@@ -813,6 +830,25 @@ def main():
             logger.info("Loading LoRA module...")
             lora_module = LoRADiffusionModule(config).to(device)
             lora_module.load_state_dict(torch.load(lora_path, map_location=device))
+        # Load shared instruction encoder for baselines (full_ft, weight_lora, adapters, bitfit)
+        enc_path = checkpoint_path / "instruction_encoder.pt"
+        if enc_path.exists() and lora_module is None:
+            logger.info("Loading shared instruction encoder (baseline)...")
+            lora_cfg = config.get("lora", {})
+            model_cfg = config.get("model", {})
+            instruction_encoder = InstructionEncoder(
+                vocab_size=model_cfg.get("vocab_size", 30522),
+                hidden_dim=model_cfg.get("hidden_dim", 768),
+                output_dim=lora_cfg.get("instruction_encoder_hidden", 256),
+                num_layers=lora_cfg.get("instruction_encoder_layers", 2),
+            ).to(device)
+            instruction_to_hidden = torch.nn.Linear(
+                lora_cfg.get("instruction_encoder_hidden", 256),
+                model_cfg.get("hidden_dim", 768),
+            ).to(device)
+            enc_data = torch.load(enc_path, map_location=device)
+            instruction_encoder.load_state_dict(enc_data["instruction_encoder"])
+            instruction_to_hidden.load_state_dict(enc_data["instruction_to_hidden"])
     
     # Classification-head evaluation (primary classification metric)
     metrics_extra = {}
@@ -846,16 +882,22 @@ def main():
         h_train, y_train = get_final_hiddens_and_labels(
             model, lora_module, train_loader, device, config, label_names,
             composer=composer,
+            instruction_encoder=instruction_encoder,
+            instruction_to_hidden=instruction_to_hidden,
         )
         logger.info("Collecting final hiddens (validation)...")
         h_val, y_val = get_final_hiddens_and_labels(
             model, lora_module, val_loader, device, config, label_names,
             composer=composer,
+            instruction_encoder=instruction_encoder,
+            instruction_to_hidden=instruction_to_hidden,
         )
         logger.info("Collecting final hiddens (test)...")
         h_test, y_test = get_final_hiddens_and_labels(
             model, lora_module, test_loader, device, config, label_names,
             composer=composer,
+            instruction_encoder=instruction_encoder,
+            instruction_to_hidden=instruction_to_hidden,
         )
         
         if h_train is not None and h_val is not None and h_test is not None:
@@ -893,6 +935,8 @@ def main():
             dataloader=dataloader,
             device=device,
             config=config,
+            instruction_encoder=instruction_encoder,
+            instruction_to_hidden=instruction_to_hidden,
         )
         predictions, references = None, None
         if args.run_generation:
@@ -905,15 +949,17 @@ def main():
                 device=device,
                 config=config,
                 use_composition=args.use_composition,
+                instruction_encoder=instruction_encoder,
+                instruction_to_hidden=instruction_to_hidden,
             )
             tokenizer = dataloader.dataset.tokenizer if hasattr(dataloader.dataset, 'tokenizer') else None
-            gen_metrics = compute_metrics(
-                predictions=predictions,
-                references=references,
-                task_config=task_config,
-                tokenizer=tokenizer,
-            )
-            metrics["generation_accuracy"] = gen_metrics.get("accuracy")
+        gen_metrics = compute_metrics(
+            predictions=predictions,
+            references=references,
+            task_config=config,
+            tokenizer=tokenizer,
+        )
+        metrics["generation_accuracy"] = gen_metrics.get("accuracy")
     else:
         # Generation-based evaluation (for QA, summarization, or when --no_teacher_forced)
         # Do NOT save generation under "accuracy" so collector/paper never use it as val_accuracy.
@@ -926,12 +972,14 @@ def main():
             device=device,
             config=config,
             use_composition=args.use_composition,
+            instruction_encoder=instruction_encoder,
+            instruction_to_hidden=instruction_to_hidden,
         )
         tokenizer = dataloader.dataset.tokenizer if hasattr(dataloader.dataset, 'tokenizer') else None
         gen_metrics = compute_metrics(
             predictions=predictions,
             references=references,
-            task_config=task_config,
+            task_config=config,
             tokenizer=tokenizer,
         )
         metrics = {"generation_accuracy": gen_metrics.get("accuracy"), "loss": None}
@@ -964,6 +1012,21 @@ def main():
         with open(output_path, "w") as f:
             json.dump(results, f, indent=2)
         logger.info(f"Saved results to {output_path}")
+        # Structured metrics.json for aggregation (token vs GLUE, no mixing)
+        m = results.get("metrics", {})
+        structured = {
+            "token_accuracy_val": m.get("accuracy"),
+            "token_accuracy_test": m.get("accuracy") if args.split == "test" else None,
+            "glue_accuracy_val": m.get("generation_accuracy"),
+            "glue_accuracy_test": m.get("generation_accuracy") if args.split == "test" else None,
+            "glue_f1_val": m.get("f1"),
+            "glue_f1_test": m.get("f1") if args.split == "test" else None,
+            "loss": m.get("loss"),
+        }
+        metrics_path = output_path.parent / "metrics.json"
+        with open(metrics_path, "w") as f:
+            json.dump(structured, f, indent=2)
+        logger.info(f"Saved structured metrics to {metrics_path}")
     
     # Optionally save predictions (only if we have them)
     if predictions:

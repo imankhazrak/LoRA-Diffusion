@@ -33,14 +33,14 @@ def parse_args():
         "--seeds",
         type=int,
         nargs="+",
-        default=[42, 43, 44, 45, 46, 47, 48, 49, 50, 51],
-        help="List of random seeds (default: 42-51 for 10 seeds)",
+        default=[42, 43, 44, 45, 46],
+        help="List of random seeds (default: 42-46, exactly 5 runs per setting)",
     )
     parser.add_argument(
         "--num_seeds",
         type=int,
-        default=None,
-        help="Number of seeds to generate (starting from --start_seed)",
+        default=5,
+        help="Number of seeds to generate (starting from --start_seed); default 5 for GLUE",
     )
     parser.add_argument(
         "--start_seed",

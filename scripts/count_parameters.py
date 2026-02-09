@@ -253,8 +253,19 @@ def main():
         default=["full_ft", "lora_diffusion", "weight_lora", "adapters", "bitfit", "prefix_tuning"],
         help="Methods to count",
     )
-    
+    parser.add_argument(
+        "--encoder_frozen",
+        action="store_true",
+        default=True,
+        help="Report PEFT-only (exclude instruction encoder); default True (MODE-FROZEN-ENC)",
+    )
+    parser.add_argument(
+        "--encoder_trainable",
+        action="store_true",
+        help="Report total trainable including encoder (MODE-TRAIN-ENC)",
+    )
     args = parser.parse_args()
+    encoder_frozen = not args.encoder_trainable
     
     # Load config
     config = load_config(
@@ -296,10 +307,20 @@ def main():
                 print(f"Unknown method: {method}")
                 continue
             
+            if "breakdown" in counts and encoder_frozen and method == "lora_diffusion":
+                bd = counts["breakdown"]
+                enc = bd.get("instruction_encoder", 0) + bd.get("instruction_to_hidden", 0)
+                counts["trainable_params_peft_only"] = counts["trainable_params"] - enc
+                counts["trainable_params_total"] = counts["trainable_params"]
+            else:
+                counts["trainable_params_peft_only"] = counts.get("trainable_params_peft_only", counts["trainable_params"])
+                counts["trainable_params_total"] = counts.get("trainable_params_total", counts["trainable_params"])
             results[method] = counts
             
             print(f"  Base params: {counts['base_params']:,}")
             print(f"  Trainable params: {counts['trainable_params']:,}")
+            if "trainable_params_peft_only" in counts:
+                print(f"  Trainable (PEFT-only, excl. encoder): {counts['trainable_params_peft_only']:,}")
             print(f"  Trainable %: {counts['trainable_percent']:.2f}%")
             print(f"  Storage: {counts['storage_mb']:.2f} MB")
             if "breakdown" in counts:

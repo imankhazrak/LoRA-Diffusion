@@ -10,7 +10,7 @@ echo ""
 # Configuration (override with env: TASKS, OUTPUT_DIR, etc.)
 TASKS="${TASKS:-sst2}"
 METHODS="${METHODS:-full_ft lora_diffusion weight_lora adapters bitfit}"
-NUM_SEEDS="${NUM_SEEDS:-10}"
+NUM_SEEDS="${NUM_SEEDS:-5}"
 START_SEED="${START_SEED:-42}"
 OUTPUT_DIR="${OUTPUT_DIR:-./outputs/multi_seed_experiments}"
 CONFIG="${CONFIG:-configs/base_config.yaml}"
