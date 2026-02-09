@@ -1,10 +1,11 @@
 # MRPC (Paraphrase Classification) Task Configuration
+# Dataset: HuggingFace GLUE (glue/mrpc)
 
 task:
   name: "mrpc"
   type: "classification"
-  dataset: "SetFit/mrpc"
-  dataset_config: null
+  dataset: "glue"
+  dataset_config: "mrpc"
 
   split_names:
     train: "train"
@@ -15,7 +16,9 @@ task:
   input_columns: ["sentence1", "sentence2"]
   label_column: "label"
   num_labels: 2
+  # Head-free verbalizer: equivalent/not_equivalent (GLUE standard)
   label_names: ["not_equivalent", "equivalent"]
+  verbalizer: ["not_equivalent", "equivalent"]
 
   max_seq_length: 128
 
@@ -24,7 +27,8 @@ task:
 
   instruction_template: "Determine if the following two sentences are paraphrases (equivalent in meaning). Sentence 1: {sentence1} Sentence 2: {sentence2} Answer (equivalent or not_equivalent):"
 
-# Metrics
+# Metrics: token-level + head-free GLUE Accuracy and F1
 metrics:
   primary: "accuracy"
   secondary: ["f1"]
+  glue_metrics: ["accuracy", "f1"]

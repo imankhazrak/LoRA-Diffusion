@@ -1,6 +1,9 @@
 # Base configuration for LoRA-Diffusion
 # Override specific values via command line or task-specific configs
 
+# Experiment: MODE-FROZEN-ENC (true) = instruction encoder frozen for all methods (PEFT fairness)
+instruction_encoder_frozen: true
+
 # Model architecture
 model:
   type: "masked_diffusion_transformer"

@@ -1,10 +1,11 @@
 # QNLI (Question-Answer NLI) Task Configuration
+# Dataset: HuggingFace GLUE (glue/qnli)
 
 task:
   name: "qnli"
   type: "classification"
-  dataset: "SetFit/qnli"
-  dataset_config: null
+  dataset: "glue"
+  dataset_config: "qnli"
 
   split_names:
     train: "train"
@@ -15,7 +16,9 @@ task:
   input_columns: ["question", "sentence"]
   label_column: "label"
   num_labels: 2
+  # Head-free verbalizer (fixed)
   label_names: ["entailment", "not_entailment"]
+  verbalizer: ["entailment", "not_entailment"]
 
   max_seq_length: 128
 
@@ -24,7 +27,8 @@ task:
 
   instruction_template: "Does the sentence answer the question? Answer with entailment or not_entailment.\nQuestion: {question}\nSentence: {sentence}\nAnswer:"
 
-# Metrics
+# Metrics: token-level + head-free GLUE accuracy
 metrics:
   primary: "accuracy"
   secondary: ["f1"]
+  glue_metrics: ["accuracy"]

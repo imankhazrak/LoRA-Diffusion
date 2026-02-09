@@ -3,8 +3,8 @@
 task:
   name: "sst2"
   type: "classification"
-  dataset: "SetFit/sst2"  # Alternative dataset source
-  dataset_config: null  # No config needed for this dataset
+  dataset: "glue"
+  dataset_config: "sst2"
   
   split_names:
     train: "train"
@@ -16,18 +16,20 @@ task:
   label_column: "label"
   num_labels: 2
   label_names: ["negative", "positive"]
-  
-  # Sequence length
+  verbalizer: ["negative", "positive"]
+
+  # Sequence length (128 for all GLUE)
   max_seq_length: 128
-  
-  # Task-specific training
-  max_steps: 5000
+
+  # Task-specific training (10k for SST-2 per experiment_glue)
+  max_steps: 10000
   eval_frequency: 250
   
   # Instruction template
   instruction_template: "Classify the sentiment of the following sentence as positive or negative: {input}"
   
-# Metrics
+# Metrics: token-level + head-free GLUE accuracy
 metrics:
   primary: "accuracy"
   secondary: ["f1"]
+  glue_metrics: ["accuracy"]

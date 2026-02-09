@@ -1,0 +1,34 @@
+# Unified GLUE experiment config (Instruction2.md)
+# Use with: --config configs/experiment_glue.yaml and task/method overrides
+
+# Experiment matrix
+experiment:
+  tasks: ["sst2", "qnli", "mrpc"]
+  methods: ["full_ft", "weight_lora", "adapters", "bitfit", "lora_diffusion"]
+  seeds: [42, 43, 44, 45, 46]  # Exactly 5 runs per setting
+  # Encoder mode: MODE-FROZEN-ENC (default) for PEFT fairness; MODE-TRAIN-ENC to include encoder in trainable
+  instruction_encoder_frozen: true
+
+# Steps per task (fixed for reproducibility)
+# SST-2: 10k; QNLI/MRPC: 5k
+task_steps:
+  sst2: 10000
+  qnli: 5000
+  mrpc: 5000
+
+# Shared training defaults (overridden by task configs where needed)
+training:
+  learning_rate: 1.0e-4
+  max_steps: 5000  # Override per task via task_steps
+  eval_frequency: 250
+  batch_size: 64
+  eval_batch_size: 128
+  mixed_precision: "bf16"
+
+# Diffusion
+diffusion:
+  num_steps: 100  # T
+
+# Data: max_seq_len 128 for all GLUE tasks (document if MRPC needs 256)
+model:
+  max_seq_length: 128
