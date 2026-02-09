@@ -119,10 +119,10 @@ Metric: **token-level denoising accuracy** (fraction of masked tokens predicted 
 | Method | Mean (%) | Std | Variance | 95% CI | p-value vs. full FT | Cohen's d |
 |--------|----------|-----|----------|--------|----------------------|----------|
 | full_ft | 84.81 | 0.38 | 0.15 | [84.33, 85.28] | --- | --- |
-| lora_diffusion | 88.01 | 0.27 | 0.07 | [87.67, 88.34] | N/A | 5.73 |
-| weight_lora | 85.23 | 0.32 | 0.10 | [84.83, 85.62] | N/A | 0.85 |
-| adapters | 85.17 | 0.07 | 0.01 | [85.07, 85.26] | N/A | 1.12 |
-| bitfit | 84.73 | 0.35 | 0.12 | [84.30, 85.16] | N/A | -0.42 |
+| lora_diffusion | 88.01 | 0.27 | 0.07 | [87.67, 88.34] | 0.0000 | 5.73 |
+| weight_lora | 85.23 | 0.32 | 0.10 | [84.83, 85.62] | 0.0000 | 0.85 |
+| adapters | 85.17 | 0.07 | 0.01 | [85.07, 85.26] | 0.0000 | 1.12 |
+| bitfit | 84.73 | 0.35 | 0.12 | [84.30, 85.16] | 0.2227 | -0.42 |
 
 ## Note on 100% token-level accuracy (QNLI, MRPC)
 
