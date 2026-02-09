@@ -2,6 +2,7 @@
 """Collect token-level accuracy from complete glue_single runs and emit MD + LaTeX."""
 
 import json
+import math
 import statistics
 from pathlib import Path
 from collections import defaultdict
@@ -11,6 +12,28 @@ try:
     from scipy import stats as scipy_stats
 except (ImportError, ValueError, OSError):
     scipy_stats = None
+
+
+def _paired_t_test_pvalue_approx(group1: List[float], group2: List[float]) -> float:
+    """Paired t-test two-tailed p-value without scipy. For n=5, df=4."""
+    if len(group1) != len(group2) or len(group1) < 2:
+        return float("nan")
+    diff = [a - b for a, b in zip(group1, group2)]
+    n = len(diff)
+    mean_d = statistics.mean(diff)
+    sd_d = statistics.stdev(diff)
+    if sd_d <= 0:
+        return 1.0
+    t_stat = mean_d / (sd_d / (n ** 0.5))
+    df = n - 1
+    # Student t CDF for two-tailed: p = 2 * (1 - CDF(|t|))
+    # CDF for t with df=4: 0.5 + 0.5 * (t/sqrt(df+t^2)) * (1 + df/(df+t^2))
+    t_abs = abs(t_stat)
+    if t_abs >= 1e10:
+        return 0.0
+    cdf_t = 0.5 + 0.5 * (t_abs / (df + t_abs ** 2) ** 0.5) * (1 + df / (df + t_abs ** 2))
+    return 2 * (1 - min(cdf_t, 1.0))
+
 
 OUTPUTS = Path(__file__).resolve().parent.parent / "outputs" / "glue_single"
 DOC = Path(__file__).resolve().parent.parent / "doc"
@@ -187,16 +210,13 @@ def main():
                         if scipy_stats is not None:
                             tt = scipy_stats.ttest_rel(vals, full_ft_vals)
                             pval_str = "{:.4f}".format(tt.pvalue)
-                            diff = [a - b for a, b in zip(vals, full_ft_vals)]
-                            sd_diff = statistics.stdev(diff) if len(diff) > 1 else 0.0
-                            cohens_d = (mean - statistics.mean(full_ft_vals)) / sd_diff if sd_diff > 0 else 0.0
-                            d_str = "{:.2f}".format(cohens_d)
                         else:
-                            diff = [a - b for a, b in zip(vals, full_ft_vals)]
-                            sd_diff = statistics.stdev(diff) if len(diff) > 1 else 0.0
-                            cohens_d = (mean - statistics.mean(full_ft_vals)) / sd_diff if sd_diff > 0 else 0.0
-                            d_str = "{:.2f}".format(cohens_d)
-                            pval_str = "N/A"
+                            p_val = _paired_t_test_pvalue_approx(vals, full_ft_vals)
+                            pval_str = "{:.4f}".format(p_val) if not math.isnan(p_val) else "N/A"
+                        diff = [a - b for a, b in zip(vals, full_ft_vals)]
+                        sd_diff = statistics.stdev(diff) if len(diff) > 1 else 0.0
+                        cohens_d = (mean - statistics.mean(full_ft_vals)) / sd_diff if sd_diff > 0 else 0.0
+                        d_str = "{:.2f}".format(cohens_d)
                     else:
                         pval_str = "N/A"
                         d_str = "N/A"
@@ -362,7 +382,8 @@ def main():
                         tt = scipy_stats.ttest_rel(vals, sst2_val["full_ft"])
                         pval_str = "{:.4f}".format(tt.pvalue)
                     else:
-                        pval_str = "N/A"
+                        p_val = _paired_t_test_pvalue_approx(vals, sst2_val["full_ft"])
+                        pval_str = "{:.4f}".format(p_val) if not math.isnan(p_val) else "N/A"
                     diff = [a - b for a, b in zip(vals, sst2_val["full_ft"])]
                     sd_diff = statistics.stdev(diff) if len(diff) > 1 else 0.0
                     cohens_d = (mean - statistics.mean(sst2_val["full_ft"])) / sd_diff if sd_diff > 0 else 0.0

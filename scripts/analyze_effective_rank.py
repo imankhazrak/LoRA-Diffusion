@@ -22,6 +22,7 @@ def main():
     ap.add_argument("--checkpoint", default="")
     ap.add_argument("--output", default="")
     ap.add_argument("--device", default="cpu")
+    ap.add_argument("--singular-values", action="store_true", help="Include singular values per module in JSON (for spectra).")
     args = ap.parse_args()
     if not args.checkpoint or not Path(args.checkpoint).exists():
         r, d = 8, 768
@@ -38,11 +39,18 @@ def main():
         return
     ckpt = torch.load(args.checkpoint, map_location=args.device, weights_only=True)
     ranks = []
-    for k, p in ckpt.items():
+    per_key = {}
+    for k, p in sorted(ckpt.items()):
         if p.dim() >= 2:
             s = torch.linalg.svdvals(p.detach().float())
-            ranks.append(effective_rank_from_singular_values(s))
-    out = {"mean_effective_rank": float(np.mean(ranks))} if ranks else {}
+            r_eff = effective_rank_from_singular_values(s)
+            ranks.append(r_eff)
+            per_key[k] = {"effective_rank": float(r_eff)}
+            if getattr(args, "singular_values", False):
+                per_key[k]["singular_values"] = s.cpu().numpy().tolist()[:32]
+    out = {"mean_effective_rank": float(np.mean(ranks)), "std_effective_rank": float(np.std(ranks)) if len(ranks) > 1 else 0.0}
+    if per_key:
+        out["per_phase"] = per_key
     if args.output and out:
         Path(args.output).parent.mkdir(parents=True, exist_ok=True)
         with open(args.output, "w") as f:
