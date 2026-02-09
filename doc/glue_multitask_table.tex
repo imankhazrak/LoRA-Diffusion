@@ -1,0 +1,18 @@
+% Multi-task joint training: mean $\pm$ std over seeds
+\begin{table}[h]
+\centering
+\caption{Multi-task GLUE results (joint training on SST-2, QNLI, MRPC): token-level validation accuracy and generation accuracy (\%, mean $\pm$ std over seeds). Based on 25 complete runs.}
+\label{tab:glue_multitask}
+\scriptsize
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Method & Token-level acc (\%) & Gen. acc (\%) \\
+\midrule
+Full Fine-Tuning & $95.80 \pm 0.16$ & $6.35 \pm 0.00$ \\
+LoRA-Diffusion & $96.88 \pm 0.44$ & $6.37 \pm 0.05$ \\
+Weight LoRA & $95.98 \pm 0.06$ & $6.35 \pm 0.00$ \\
+Adapters & $49.22 \pm 27.54$ & $6.35 \pm 0.00$ \\
+BitFit & $95.36 \pm 0.05$ & $6.35 \pm 0.00$ \\
+\bottomrule
+\end{tabular}
+\end{table}

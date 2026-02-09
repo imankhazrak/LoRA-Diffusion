@@ -1,0 +1,18 @@
+% Generation accuracy (decoded output vs reference)
+\begin{table}[h]
+\centering
+\caption{Generation accuracy (\%, mean $\pm$ std over seeds): model generates the label from scratch; decoded output compared to reference. More comparable to standard GLUE than token-level denoising.}
+\label{tab:glue_single_gen}
+\scriptsize
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Method & SST2 & QNLI & MRPC \\
+\midrule
+Full Fine-Tuning & $50.92 \pm 0.00$ & $49.46 \pm 0.00$ & $31.62 \pm 0.00$ \\
+LoRA-Diffusion & $48.97 \pm 0.33$ & $49.63 \pm 0.28$ & $31.91 \pm 0.36$ \\
+Weight LoRA & $50.92 \pm 0.00$ & $49.46 \pm 0.00$ & $31.62 \pm 0.00$ \\
+Adapters & $49.77 \pm 0.90$ & $49.46 \pm 0.00$ & $68.33 \pm 0.11$ \\
+BitFit & $50.71 \pm 1.84$ & $49.46 \pm 0.00$ & $31.62 \pm 0.00$ \\
+\bottomrule
+\end{tabular}
+\end{table}

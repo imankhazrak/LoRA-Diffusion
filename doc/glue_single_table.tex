@@ -1,0 +1,18 @@
+% Summary table: mean $\pm$ std over seeds (token-level val acc, \%)
+\begin{table}[h]
+\centering
+\caption{Single-task GLUE results: token-level validation accuracy (\%, mean $\pm$ std over seeds). Based on 75 complete runs. Token-level = denoising accuracy (predicting the masked label token given the instruction); for binary QNLI/MRPC this can reach 100\% and is not a bug. Generation accuracy (decoded output) is lower; see Table~\ref{tab:glue_single_gen}.}
+\label{tab:glue_single_summary}
+\scriptsize
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Method & SST2 & QNLI & MRPC \\
+\midrule
+Full Fine-Tuning & $84.81 \pm 0.38$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ \\
+LoRA-Diffusion & $88.01 \pm 0.27$ & $99.39 \pm 0.28$ & $97.56 \pm 3.22$ \\
+Weight LoRA & $85.23 \pm 0.32$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ \\
+Adapters & $85.17 \pm 0.07$ & $67.09 \pm 0.84$ & $85.68 \pm 1.38$ \\
+BitFit & $84.73 \pm 0.35$ & $100.00 \pm 0.00$ & $100.00 \pm 0.00$ \\
+\bottomrule
+\end{tabular}
+\end{table}
