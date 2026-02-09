@@ -20,6 +20,7 @@ else:
 import json
 
 from .losses import compute_diffusion_loss
+from src.utils.parameter_accounting import get_parameter_accounting
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,8 @@ class DiffusionTrainer:
         lora_module: Optional[nn.Module] = None,
         router: Optional[nn.Module] = None,
         device: str = "cuda",
+        instruction_encoder: Optional[nn.Module] = None,
+        instruction_to_hidden: Optional[nn.Module] = None,
     ):
         """
         Args:
@@ -50,6 +53,8 @@ class DiffusionTrainer:
             lora_module: Optional LoRA module
             router: Optional task router for multi-task composition
             device: Device to train on
+            instruction_encoder: Optional shared instruction encoder (for baselines when lora_module is None)
+            instruction_to_hidden: Optional projection to hidden_dim (for baselines)
         """
         self.model = model.to(device)
         self.train_dataloader = train_dataloader
@@ -59,6 +64,8 @@ class DiffusionTrainer:
         self.config = config
         self.lora_module = lora_module.to(device) if lora_module else None
         self.router = router.to(device) if router else None
+        self.instruction_encoder = instruction_encoder.to(device) if instruction_encoder else None
+        self.instruction_to_hidden = instruction_to_hidden.to(device) if instruction_to_hidden else None
         self.device = device
         
         # Training config
@@ -100,7 +107,13 @@ class DiffusionTrainer:
             lora_params = sum(p.numel() for p in self.lora_module.parameters())
             trainable_params += lora_params
             logger.info(f"LoRA parameters: {lora_params:,} ({lora_params/total_params*100:.2f}%)")
-        
+        if self.instruction_encoder:
+            enc_params = sum(p.numel() for p in self.instruction_encoder.parameters() if p.requires_grad)
+            if self.instruction_to_hidden:
+                enc_params += sum(p.numel() for p in self.instruction_to_hidden.parameters() if p.requires_grad)
+            trainable_params += enc_params
+            if enc_params > 0:
+                logger.info(f"Instruction encoder (shared): {enc_params:,} trainable")
         if self.router:
             router_params = sum(p.numel() for p in self.router.parameters())
             trainable_params += router_params
@@ -112,12 +125,17 @@ class DiffusionTrainer:
     def train(self):
         """Main training loop."""
         logger.info("Starting training...")
+        train_start_time = time.time()
         
         self.model.train()
         if self.lora_module:
             self.lora_module.train()
         if self.router:
             self.router.train()
+        if self.instruction_encoder:
+            self.instruction_encoder.train()
+        if self.instruction_to_hidden:
+            self.instruction_to_hidden.train()
         
         train_iterator = iter(self.train_dataloader)
         accumulated_loss = 0.0
@@ -146,6 +164,8 @@ class DiffusionTrainer:
                     config=self.config,
                     router=self.router,
                     task_labels=task_labels,
+                    instruction_encoder=self.instruction_encoder,
+                    instruction_to_hidden=self.instruction_to_hidden,
                 )
                 loss = loss / self.gradient_accumulation_steps
             
@@ -170,6 +190,10 @@ class DiffusionTrainer:
                     params_to_clip = []
                     if self.lora_module:
                         params_to_clip.extend(list(self.lora_module.parameters()))
+                    if self.instruction_encoder:
+                        params_to_clip.extend(list(self.instruction_encoder.parameters()))
+                    if self.instruction_to_hidden:
+                        params_to_clip.extend(list(self.instruction_to_hidden.parameters()))
                     if self.router:
                         params_to_clip.extend(list(self.router.parameters()))
                     if not params_to_clip:
@@ -248,6 +272,10 @@ class DiffusionTrainer:
                         self.lora_module.train()
                     if self.router:
                         self.router.train()
+                    if self.instruction_encoder:
+                        self.instruction_encoder.train()
+                    if self.instruction_to_hidden:
+                        self.instruction_to_hidden.train()
                 
                 # Save checkpoint
                 if (self.global_step + 1) % self.save_frequency == 0:
@@ -274,6 +302,7 @@ class DiffusionTrainer:
             json.dump(self.evaluation_history, f, indent=2)
         logger.info(f"Saved evaluation history to {eval_history_path}")
         
+        total_wall_seconds = time.time() - train_start_time
         # Save final summary
         summary = {
             "total_steps": self.global_step,
@@ -281,11 +310,35 @@ class DiffusionTrainer:
             "final_training_metrics": self.training_history[-1]["metrics"] if self.training_history else {},
             "final_eval_metrics": self.evaluation_history[-1]["metrics"] if self.evaluation_history else {},
             "config": self.config,
+            "training_wall_clock_seconds": total_wall_seconds,
+            "time_per_step_seconds": total_wall_seconds / self.global_step if self.global_step else None,
         }
         summary_path = self.output_dir / "training_summary.json"
         with open(summary_path, "w") as f:
             json.dump(summary, f, indent=2)
         logger.info(f"Saved training summary to {summary_path}")
+        # Parameter accounting (two views) for aggregation
+        encoder_frozen = self.config.get(
+            "instruction_encoder_frozen",
+            self.config.get("experiment", {}).get("instruction_encoder_frozen", True),
+        )
+        params_info = get_parameter_accounting(
+            self.model,
+            lora_module=self.lora_module,
+            instruction_encoder=self.instruction_encoder,
+            instruction_to_hidden=self.instruction_to_hidden,
+            encoder_frozen=encoder_frozen,
+        )
+        # Checkpoint size on disk (MB)
+        ckpt_dir = self.output_dir / "final_model"
+        if ckpt_dir.exists():
+            params_info["checkpoint_mb"] = sum(f.stat().st_size for f in ckpt_dir.rglob("*") if f.is_file()) / (1024 * 1024)
+        else:
+            params_info["checkpoint_mb"] = None
+        params_path = self.output_dir / "params.json"
+        with open(params_path, "w") as f:
+            json.dump(params_info, f, indent=2)
+        logger.info(f"Saved parameter accounting to {params_path}")
     
     @torch.no_grad()
     def evaluate(self) -> Dict[str, float]:
@@ -295,6 +348,10 @@ class DiffusionTrainer:
         self.model.eval()
         if self.lora_module:
             self.lora_module.eval()
+        if self.instruction_encoder:
+            self.instruction_encoder.eval()
+        if self.instruction_to_hidden:
+            self.instruction_to_hidden.eval()
         if self.router:
             self.router.eval()
         
@@ -321,6 +378,8 @@ class DiffusionTrainer:
                     config=self.config,
                     router=self.router,
                     task_labels=task_labels,
+                    instruction_encoder=self.instruction_encoder,
+                    instruction_to_hidden=self.instruction_to_hidden,
                 )
             
             batch_size = batch["target_ids"].size(0)
@@ -350,13 +409,24 @@ class DiffusionTrainer:
                         instruction_ids,
                         attention_mask=instruction_mask,
                     )
-                    # Project to hidden_dim for base model conditioning
                     instruction_emb_for_base = self.lora_module.instruction_to_hidden(instruction_emb)
+                elif self.instruction_encoder is not None and self.instruction_to_hidden is not None:
+                    instruction_emb = self.instruction_encoder(
+                        instruction_ids,
+                        attention_mask=instruction_mask,
+                    )
+                    instruction_emb_for_base = self.instruction_to_hidden(instruction_emb)
                 else:
                     instruction_emb_for_base = None
                 
-                # Get tokenizer and label names for classification
-                tokenizer = self.eval_dataloader.dataset.tokenizer
+                # Get tokenizer and label names for classification (support ConcatDataset in multitask)
+                ds = self.eval_dataloader.dataset
+                if hasattr(ds, "tokenizer"):
+                    tokenizer = ds.tokenizer
+                elif hasattr(ds, "datasets") and len(ds.datasets) > 0 and hasattr(ds.datasets[0], "tokenizer"):
+                    tokenizer = ds.datasets[0].tokenizer
+                else:
+                    tokenizer = None
                 label_names = task_config.get("label_names", None)
                 
                 # Use classification-specific sampling if available
@@ -395,8 +465,14 @@ class DiffusionTrainer:
         # Compute task-specific metrics if applicable
         if compute_task_metrics and all_predictions:
             from src.evaluation.metrics import compute_metrics
-            # Get tokenizer for token-level label decoding
-            tokenizer = self.eval_dataloader.dataset.tokenizer if hasattr(self.eval_dataloader.dataset, 'tokenizer') else None
+            # Get tokenizer for token-level label decoding (support ConcatDataset in multitask)
+            ds = self.eval_dataloader.dataset
+            if hasattr(ds, "tokenizer"):
+                tokenizer = ds.tokenizer
+            elif hasattr(ds, "datasets") and len(ds.datasets) > 0 and hasattr(ds.datasets[0], "tokenizer"):
+                tokenizer = ds.datasets[0].tokenizer
+            else:
+                tokenizer = None
             task_metrics = compute_metrics(
                 predictions=all_predictions,
                 references=all_references,
@@ -427,6 +503,19 @@ class DiffusionTrainer:
             model_path = checkpoint_path / "model.pt"
             torch.save(self.model.state_dict(), model_path)
         
+        # Save shared instruction encoder (for baselines: full_ft, weight_lora, adapters, bitfit)
+        if self.instruction_encoder is not None and self.instruction_to_hidden is not None:
+            enc_path = checkpoint_path / "instruction_encoder.pt"
+            torch.save({
+                "instruction_encoder": self.instruction_encoder.state_dict(),
+                "instruction_to_hidden": self.instruction_to_hidden.state_dict(),
+            }, enc_path)
+            run_root_enc = self.checkpoint_dir / "instruction_encoder.pt"
+            if run_root_enc.resolve() != enc_path.resolve():
+                torch.save({
+                    "instruction_encoder": self.instruction_encoder.state_dict(),
+                    "instruction_to_hidden": self.instruction_to_hidden.state_dict(),
+                }, run_root_enc)
         # Save LoRA module (to final_model/ and to run root for downstream scripts)
         if self.lora_module:
             lora_path = checkpoint_path / "lora_module.pt"
@@ -470,6 +559,7 @@ class DiffusionTrainer:
             "best_metric": self.best_metric,
             "has_model": any(p.requires_grad for p in self.model.parameters()),
             "has_lora": self.lora_module is not None,
+            "has_instruction_encoder": self.instruction_encoder is not None,
             "has_router": self.router is not None,
         }
         if self.evaluation_history:
@@ -491,11 +581,16 @@ class DiffusionTrainer:
         if model_path.exists():
             self.model.load_state_dict(torch.load(model_path, map_location=self.device))
         
+        # Load shared instruction encoder (for baselines)
+        enc_path = checkpoint_path / "instruction_encoder.pt"
+        if enc_path.exists() and self.instruction_encoder is not None and self.instruction_to_hidden is not None:
+            enc_data = torch.load(enc_path, map_location=self.device)
+            self.instruction_encoder.load_state_dict(enc_data["instruction_encoder"])
+            self.instruction_to_hidden.load_state_dict(enc_data["instruction_to_hidden"])
         # Load LoRA
         lora_path = checkpoint_path / "lora_module.pt"
         if lora_path.exists() and self.lora_module:
             self.lora_module.load_state_dict(torch.load(lora_path, map_location=self.device))
-        
         # Load router
         router_path = checkpoint_path / "router.pt"
         if router_path.exists() and self.router:

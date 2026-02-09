@@ -14,6 +14,8 @@ def compute_diffusion_loss(
     config: Optional[Dict] = None,
     router: Optional[nn.Module] = None,
     task_labels: Optional[torch.Tensor] = None,
+    instruction_encoder: Optional[nn.Module] = None,
+    instruction_to_hidden: Optional[nn.Module] = None,
 ) -> Tuple[torch.Tensor, Dict[str, float]]:
     """
     Compute diffusion training loss.
@@ -126,22 +128,27 @@ def compute_diffusion_loss(
             router_logits = router(instruction_emb)
             router_loss = F.cross_entropy(router_logits, task_labels)
     else:
-        # Standard training: compute loss directly
+        # Baseline methods (full_ft, weight_lora, adapters, bitfit): use shared instruction encoder when provided
+        instruction_emb = None
+        if instruction_encoder is not None and instruction_to_hidden is not None:
+            instruction_emb = instruction_encoder(
+                instruction_ids,
+                attention_mask=instruction_mask,
+            )
+            instruction_emb_for_base = instruction_to_hidden(instruction_emb)
+        else:
+            instruction_emb_for_base = None
         logits = model.forward(
             input_ids=xt,
             timesteps=timesteps,
             attention_mask=target_mask,
-            instruction_embedding=None,
+            instruction_embedding=instruction_emb_for_base,
         )
         reg_loss = 0.0
-        
-        # Compute router loss if router is provided (even without lora_module)
         router_loss = 0.0
-        if router is not None and task_labels is not None:
-            # Need to encode instruction separately
-            # This requires an instruction encoder - for now, skip router loss
-            # In practice, router training should use lora_module with instruction_encoder
-            pass
+        if router is not None and task_labels is not None and instruction_emb is not None:
+            router_logits = router(instruction_emb)
+            router_loss = F.cross_entropy(router_logits, task_labels)
     
     # Compute cross-entropy loss
     ce_loss = F.cross_entropy(

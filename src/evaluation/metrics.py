@@ -192,6 +192,47 @@ def classification_head_accuracy(
     return float(np.mean(pred == label_indices))
 
 
+def compute_classification_f1(
+    predictions: List[str],
+    references: List[str],
+    task_config: Optional[Dict[str, Any]] = None,
+    tokenizer: Optional[Any] = None,
+) -> float:
+    """Compute binary/macro F1 for classification (e.g. MRPC). Uses same decoding as accuracy."""
+    if not predictions or not references:
+        return 0.0
+    label_names = None
+    if task_config:
+        if "task" in task_config and "label_names" in task_config["task"]:
+            label_names = task_config["task"]["label_names"]
+        elif "label_names" in task_config:
+            label_names = task_config["label_names"]
+    if not label_names:
+        label_names = list(set(references))
+    decoded = [
+        decode_classification_label(p, label_names, tokenizer=tokenizer)
+        for p in predictions
+    ]
+    refs_normalized = [r.strip().lower() for r in references]
+    preds_normalized = [d.strip().lower() for d in decoded]
+    # Binary F1: treat index 1 as positive class (e.g. "equivalent", "positive")
+    pos_label = label_names[1].lower() if len(label_names) > 1 else refs_normalized[0]
+    tp = sum(1 for p, r in zip(preds_normalized, refs_normalized) if p == pos_label and r == pos_label)
+    fp = sum(1 for p, r in zip(preds_normalized, refs_normalized) if p == pos_label and r != pos_label)
+    fn = sum(1 for p, r in zip(preds_normalized, refs_normalized) if p != pos_label and r == pos_label)
+    if tp + fp == 0:
+        precision = 0.0
+    else:
+        precision = tp / (tp + fp)
+    if tp + fn == 0:
+        recall = 0.0
+    else:
+        recall = tp / (tp + fn)
+    if precision + recall == 0:
+        return 0.0
+    return 2.0 * precision * recall / (precision + recall)
+
+
 def compute_accuracy(
     predictions: List[str],
     references: List[str],
@@ -296,9 +337,14 @@ def get_metric_fn(task_type: str) -> Callable:
     """
     if task_type == "classification":
         def classification_metrics(predictions, references, task_config=None, tokenizer=None):
-            return {
+            out = {
                 "accuracy": compute_accuracy(predictions, references, task_config=task_config, tokenizer=tokenizer),
             }
+            # MRPC and tasks with glue_metrics include F1 (task_config may be full config with config["metrics"])
+            metrics_cfg = task_config.get("metrics", {}) if task_config else {}
+            if metrics_cfg.get("glue_metrics") and "f1" in metrics_cfg.get("glue_metrics", []):
+                out["f1"] = compute_classification_f1(predictions, references, task_config=task_config, tokenizer=tokenizer)
+            return out
         return classification_metrics
     
     elif task_type == "qa":
